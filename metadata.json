@@ -1,0 +1,6 @@
+{
+  "name": "Projet BR inondations - Étude d'Impact et de Modélisation des Risques d'Inondation",
+  "description": "Étude d'impact d'ingénierie hydraulique, hydrologie urbaine HEC-HMS et modélisation hydraulique 1D/2D HEC-RAS pour le projet BR inondations avec tableau de bord interactif Looker Studio.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
