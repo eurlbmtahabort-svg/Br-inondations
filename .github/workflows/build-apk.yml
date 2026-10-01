@@ -52,7 +52,7 @@ jobs:
       - name: Build Release APK via Gradle
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace --info
 
       - name: Locate & Package APK
         run: |
