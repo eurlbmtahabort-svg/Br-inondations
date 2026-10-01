@@ -49,10 +49,10 @@ jobs:
       - name: Make Gradle Executable
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK via Gradle
+      - name: Build Release APK via Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace --info
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Locate & Package APK
         run: |
