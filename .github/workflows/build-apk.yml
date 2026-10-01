@@ -22,9 +22,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK Environment & Accept Licenses
+        run: |
+          echo "Setting up Android SDK environment..."
+          export ANDROID_HOME="/usr/local/lib/android/sdk"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          mkdir -p "$ANDROID_HOME/licenses" || true
+          printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n8938612744272478274900ab56530b3741703ab8" > "$ANDROID_HOME/licenses/android-sdk-license" || true
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -47,12 +59,19 @@ jobs:
       - name: Build Debug APK via Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Rename APK for Clarity
+      - name: Locate & Package APK
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/BMTahabort-FloodStudy-App.apk
+          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -n "$APK_PATH" ]; then
+            echo "Found APK at: $APK_PATH"
+            cp "$APK_PATH" build-output/BMTahabort-FloodStudy-App.apk
+          else
+            echo "Error: No APK found after build"
+            exit 1
+          fi
 
       - name: Upload APK as GitHub Action Artifact
         uses: actions/upload-artifact@v4
@@ -64,6 +83,7 @@ jobs:
       - name: Create or Update GitHub Release with APK
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        continue-on-error: true
         with:
           tag_name: v1.0.0
           name: "BMTahabort Flood Study Android App v1.0.0 (تطبيق الهاتف)"
