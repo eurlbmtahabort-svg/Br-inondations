@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">دراسة الفيضانات</string>
+    <string name="title_activity_main">دراسة الفيضانات</string>
+    <string name="package_name">com.bmtahabort.floodstudy</string>
+    <string name="custom_url_scheme">com.bmtahabort.floodstudy</string>
+</resources>
