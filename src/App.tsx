@@ -17,6 +17,7 @@ import { WordExportModal } from './components/WordExportModal';
 import { ExecutiveSummaryModal } from './components/ExecutiveSummaryModal';
 import { exportToGoogleEarthKml, exportToGeoJson } from './utils/gisExport';
 import { AiHydrologyAdvisor } from './components/AiHydrologyAdvisor';
+import { ApkDownloadModal } from './components/ApkDownloadModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai'>('location');
@@ -24,6 +25,7 @@ export default function App() {
   const [language, setLanguage] = useState<'fr' | 'ar'>('ar');
   const [isWordModalOpen, setIsWordModalOpen] = useState<boolean>(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
+  const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
 
   const handlePrint = () => {
     setActiveTab('report');
@@ -67,6 +69,7 @@ export default function App() {
         onExportWord={handleExportWord}
         onOpenSummary={handleOpenSummary}
         onExportGoogleEarth={handleExportGoogleEarth}
+        onOpenApkModal={() => setIsApkModalOpen(true)}
         currentLocationName={locationConfig.locationName}
         language={language}
         setLanguage={setLanguage}
@@ -145,6 +148,13 @@ export default function App() {
         config={locationConfig}
         language={language}
         onExportWord={handleExportWord}
+      />
+
+      {/* APK & App Installation Modal */}
+      <ApkDownloadModal
+        isOpen={isApkModalOpen}
+        onClose={() => setIsApkModalOpen(false)}
+        language={language}
       />
     </div>
   );

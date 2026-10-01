@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain } from 'lucide-react';
+import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain, Smartphone } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai';
@@ -9,6 +9,7 @@ interface HeaderProps {
   onExportWord: () => void;
   onOpenSummary?: () => void;
   onExportGoogleEarth?: () => void;
+  onOpenApkModal?: () => void;
   currentLocationName?: string;
   language: 'fr' | 'ar';
   setLanguage: (lang: 'fr' | 'ar') => void;
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onExportWord,
   onOpenSummary,
   onExportGoogleEarth,
+  onOpenApkModal,
   currentLocationName,
   language,
   setLanguage
@@ -150,6 +152,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Award className="w-3.5 h-3.5 text-emerald-400" />
               <span>{isAr ? 'بطاقة الحوض' : 'Fiche Synthèse'}</span>
+            </button>
+          )}
+
+          {/* APK / App Installation Button */}
+          {onOpenApkModal && (
+            <button
+              onClick={onOpenApkModal}
+              title={isAr ? 'تثبيت التطبيق على الهاتف أو تنزيل APK' : 'Installer l\'app ou télécharger l\'APK'}
+              className="px-2.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap shadow-[0_0_12px_rgba(16,185,129,0.35)] cursor-pointer"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>{isAr ? 'تطبيق APK 📱' : 'App APK 📱'}</span>
             </button>
           )}
 
