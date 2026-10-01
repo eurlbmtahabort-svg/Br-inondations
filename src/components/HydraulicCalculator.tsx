@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator, CheckCircle, AlertTriangle, RefreshCw, BookmarkCheck, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Calculator, CheckCircle, AlertTriangle, RefreshCw, BookmarkCheck, ArrowRight, ShieldCheck, Sparkles, Brain, Copy, Check } from 'lucide-react';
 import { HYDRAULIC_STRUCTURES } from '../data/projectData';
 
 export const HydraulicCalculator: React.FC = () => {
@@ -15,6 +15,39 @@ export const HydraulicCalculator: React.FC = () => {
   const [cellHeight, setCellHeight] = useState<number>(3.0); // m
   const [sideSlopeM, setSideSlopeM] = useState<number>(1.5); // Fruit pour trapèze (m: 1 vertical pour m horizontal)
   const [pipeDiameter, setPipeDiameter] = useState<number>(1.8); // m
+
+  // AI Hydraulic Audit State
+  const [isAiAuditing, setIsAiAuditing] = useState<boolean>(false);
+  const [aiAuditReport, setAiAuditReport] = useState<string | null>(null);
+  const [copiedAudit, setCopiedAudit] = useState<boolean>(false);
+
+  const handleRunAiAudit = async () => {
+    setIsAiAuditing(true);
+    setAiAuditReport(null);
+    try {
+      const response = await fetch('/api/ai/dimensioning-advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelType: structureType === 'canal' ? 'trapezoidal' : structureType === 'dalot' ? 'rectangular' : 'circular pipe',
+          dischargeQ: designFlow,
+          longitudinalSlope: slope,
+          manningN: parseFloat((1 / stricklerK).toFixed(4)),
+          bankSlopeZ: sideSlopeM,
+          widthB: cellWidth,
+          language: 'ar'
+        })
+      });
+      const data = await response.json();
+      if (data.success && data.advice) {
+        setAiAuditReport(data.advice);
+      }
+    } catch (e) {
+      console.error('AI audit error:', e);
+    } finally {
+      setIsAiAuditing(false);
+    }
+  };
 
   // Calculations
   const slope = slopePercent / 100;
@@ -497,6 +530,77 @@ export const HydraulicCalculator: React.FC = () => {
                 <span>L'ouvrage est calibré au plus juste (+{safetyMarginPct.toFixed(1)}%). Une surélévation de 20 cm ou un débroussaillage régulier en amont est impératif.</span>
               ) : (
                 <span className="text-rose-300">Ouvrage sous-dimensionné pour la crue de projet ({safetyMarginPct.toFixed(1)}%). Risque imminent de surverse et de rupture d'accotement !</span>
+              )}
+            </div>
+
+            {/* AI Hydraulic Sizing Auditor Card */}
+            <div className="p-4 bg-gradient-to-r from-indigo-950/70 via-slate-900 to-indigo-950/70 border border-indigo-500/40 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-cyan-300 flex items-center justify-center border border-indigo-400/30">
+                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>تدقيق وتحسين الأبعاد بالذكاء الاصطناعي (Audit IA)</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-200 font-mono">Gemini</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      فحص استقرار الجريان، رقم فرود (Fr)، ومخاطر النحر والتآكل الهيدروليكي
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRunAiAudit}
+                  disabled={isAiAuditing}
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs rounded-lg shadow-md flex items-center justify-center gap-1.5 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  {isAiAuditing ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                      <span>جاري التدقيق...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-3.5 h-3.5 text-slate-950" />
+                      <span>{aiAuditReport ? 'إعادة التدقيق بالذكاء الاصطناعي' : 'تدقيق الأبعاد بالذكاء الاصطناعي ✨'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {aiAuditReport && (
+                <div className="mt-3 p-4 bg-slate-950/90 border border-cyan-500/30 rounded-xl space-y-2 text-xs text-slate-200 leading-relaxed whitespace-pre-line animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="font-bold text-cyan-300 flex items-center gap-1">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>تقرير التدقيق الهندسي للذكاء الاصطناعي:</span>
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(aiAuditReport);
+                        setCopiedAudit(true);
+                        setTimeout(() => setCopiedAudit(false), 2000);
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedAudit ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="text-emerald-400">تم النسخ</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>نسخ التقرير</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div>{aiAuditReport}</div>
+                </div>
               )}
             </div>
           </div>

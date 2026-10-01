@@ -152,6 +152,17 @@ export const WordExportModal: React.FC<WordExportModalProps> = ({
             </div>
           </div>
 
+          {/* AI Expertise Section Inclusion Badge */}
+          <div className="p-3 bg-gradient-to-r from-indigo-950/60 to-slate-950 border border-indigo-500/40 rounded-xl flex items-center gap-2.5 text-xs text-slate-300">
+            <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+            <div className="leading-tight">
+              <span className="font-bold text-white block">ملحق الذكاء الاصطناعي (Expertise IA Gemini) :</span>
+              <span className="text-slate-400 text-[11px]">
+                يحتوي ملف Word المصدر تلقائياً على ملحق الخبرة الفنية الهيدرولوجية، تشخيص المخاطر، وتوصيات الأبعاد الصادرة بالذكاء الاصطناعي.
+              </span>
+            </div>
+          </div>
+
           {/* Success Banner */}
           {isExported && (
             <div className="p-3 bg-emerald-950/60 border border-emerald-500/60 rounded-xl text-xs text-emerald-300 flex items-center gap-2 animate-fadeIn">

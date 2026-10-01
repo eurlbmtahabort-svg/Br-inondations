@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ShieldAlert,
   Droplets,
@@ -9,7 +9,13 @@ import {
   Building,
   CheckCircle2,
   Table,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Sparkles,
+  Brain,
+  Copy,
+  Check,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import { ARABIC_REPORT_DATA } from '../data/arabicReportContent';
 import {
@@ -27,12 +33,41 @@ import {
   generateStudyWatershedSvg,
   generateStudyDemProfileSvg
 } from '../utils/satelliteImagery';
+import { ProtectionStructuresCalculator } from './ProtectionStructuresCalculator';
 
 interface ArabicReportSectionsProps {
   locationConfig: ProjectLocationConfig;
 }
 
 export const ArabicReportSections: React.FC<ArabicReportSectionsProps> = ({ locationConfig }) => {
+  const [auditingChapterId, setAuditingChapterId] = useState<string | null>(null);
+  const [chapterAuditResults, setChapterAuditResults] = useState<Record<string, string>>({});
+  const [copiedChapterId, setCopiedChapterId] = useState<string | null>(null);
+
+  const handleAuditChapter = async (chapterId: string, chapterTitle: string) => {
+    setAuditingChapterId(chapterId);
+    try {
+      const response = await fetch('/api/ai/review-chapter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chapterId,
+          chapterTitle,
+          contextData: locationConfig,
+          language: 'ar'
+        })
+      });
+      const data = await response.json();
+      if (data.success && data.review) {
+        setChapterAuditResults((prev) => ({ ...prev, [chapterId]: data.review }));
+      }
+    } catch (err) {
+      console.error('Audit chapter error:', err);
+    } finally {
+      setAuditingChapterId(null);
+    }
+  };
+
   return (
     <div className="space-y-10 text-right font-sans" dir="rtl">
       {ARABIC_REPORT_DATA.chapters.map((ch) => (
@@ -41,15 +76,75 @@ export const ArabicReportSections: React.FC<ArabicReportSectionsProps> = ({ loca
           id={ch.id}
           className="border-t border-slate-800 pt-8 space-y-6"
         >
-          {/* Chapter Title Badge */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 font-mono font-bold flex items-center justify-center text-sm border border-cyan-500/30 shrink-0">
-              0{ch.num}
+          {/* Chapter Title Badge & AI Review Trigger Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/60">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 font-mono font-bold flex items-center justify-center text-sm border border-cyan-500/30 shrink-0">
+                0{ch.num}
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white font-display">
+                الفصل {ch.num} : {ch.title}
+              </h2>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white font-display">
-              الفصل {ch.num} : {ch.title}
-            </h2>
+
+            <button
+              type="button"
+              onClick={() => handleAuditChapter(ch.id, ch.title)}
+              disabled={auditingChapterId === ch.id}
+              className="text-xs px-3.5 py-1.5 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/70 border border-indigo-500/40 text-cyan-300 font-medium flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+              title="مراجعة وتدقيق فرضيات هذا الفصل بواسطة الذكاء الاصطناعي"
+            >
+              {auditingChapterId === ch.id ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  <span>جاري تدقيق الفصل...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>تدقيق الفصل بالذكاء الاصطناعي ✨</span>
+                </>
+              )}
+            </button>
           </div>
+
+          {/* AI Chapter Review Result Box */}
+          {chapterAuditResults[ch.id] && (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-950/80 border border-indigo-500/40 shadow-xl space-y-2.5 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-cyan-300">
+                    تقرير التدقيق الهندسي للذكاء الاصطناعي (الفصل {ch.num})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(chapterAuditResults[ch.id]);
+                    setCopiedChapterId(ch.id);
+                    setTimeout(() => setCopiedChapterId(null), 2000);
+                  }}
+                  className="text-[11px] text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedChapterId === ch.id ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span className="text-emerald-400">تم النسخ</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>نسخ الملاحظات</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <div className="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                {chapterAuditResults[ch.id]}
+              </div>
+            </div>
+          )}
 
           {/* Chapter Sections */}
           <div className="space-y-6 text-slate-300 text-sm leading-relaxed">
@@ -334,6 +429,11 @@ export const ArabicReportSections: React.FC<ArabicReportSectionsProps> = ({ loca
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Interactive Sizing Calculator for Protection Structures */}
+              <div className="mt-8 pt-6 border-t border-slate-800">
+                <ProtectionStructuresCalculator config={locationConfig} language="ar" />
               </div>
             </div>
           )}

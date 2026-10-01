@@ -14,12 +14,16 @@ import { LocationManager, PRESET_LOCATIONS } from './components/LocationManager'
 import { ProjectLocationConfig } from './types/hydrology';
 import { exportStudyToWord } from './utils/wordExport';
 import { WordExportModal } from './components/WordExportModal';
+import { ExecutiveSummaryModal } from './components/ExecutiveSummaryModal';
+import { exportToGoogleEarthKml, exportToGeoJson } from './utils/gisExport';
+import { AiHydrologyAdvisor } from './components/AiHydrologyAdvisor';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location'>('location');
+  const [activeTab, setActiveTab] = useState<'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai'>('location');
   const [locationConfig, setLocationConfig] = useState<ProjectLocationConfig>(PRESET_LOCATIONS[0]);
   const [language, setLanguage] = useState<'fr' | 'ar'>('ar');
   const [isWordModalOpen, setIsWordModalOpen] = useState<boolean>(false);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
 
   const handlePrint = () => {
     setActiveTab('report');
@@ -36,6 +40,18 @@ export default function App() {
     setIsWordModalOpen(true);
   };
 
+  const handleOpenSummary = () => {
+    setIsSummaryModalOpen(true);
+  };
+
+  const handleExportGoogleEarth = () => {
+    exportToGoogleEarthKml(locationConfig);
+  };
+
+  const handleExportGeoJson = () => {
+    exportToGeoJson(locationConfig);
+  };
+
   const handleUpdateConfig = (newConfig: ProjectLocationConfig) => {
     setLocationConfig(newConfig);
   };
@@ -49,6 +65,8 @@ export default function App() {
         onPrint={handlePrint}
         onQuickExport={handleQuickExport}
         onExportWord={handleExportWord}
+        onOpenSummary={handleOpenSummary}
+        onExportGoogleEarth={handleExportGoogleEarth}
         currentLocationName={locationConfig.locationName}
         language={language}
         setLanguage={setLanguage}
@@ -69,12 +87,24 @@ export default function App() {
             currentLocationConfig={locationConfig}
             language={language}
             onExportWord={handleExportWord}
+            onOpenSummary={handleOpenSummary}
+            onExportGoogleEarth={handleExportGoogleEarth}
+            onExportGeoJson={handleExportGeoJson}
+            onNavigateToAi={() => setActiveTab('ai')}
           />
         )}
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'hecras' && <HecRasVisualizer />}
         {activeTab === 'calculator' && <HydraulicCalculator />}
         {activeTab === 'looker' && <LookerStudioHub />}
+        {activeTab === 'ai' && (
+          <AiHydrologyAdvisor
+            currentConfig={locationConfig}
+            language={language}
+            onNavigateToReport={() => setActiveTab('report')}
+            onNavigateToCalculator={() => setActiveTab('calculator')}
+          />
+        )}
       </main>
 
       {/* Clean Engineering Footer */}
@@ -106,6 +136,15 @@ export default function App() {
         onClose={() => setIsWordModalOpen(false)}
         config={locationConfig}
         defaultLang={language}
+      />
+
+      {/* Executive Summary Sheet Modal (Fiche Synthétique du Bassin) */}
+      <ExecutiveSummaryModal
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        config={locationConfig}
+        language={language}
+        onExportWord={handleExportWord}
       />
     </div>
   );

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages } from 'lucide-react';
+import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location';
-  setActiveTab: (tab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location') => void;
+  activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai';
+  setActiveTab: (tab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai') => void;
   onPrint: () => void;
   onQuickExport: () => void;
   onExportWord: () => void;
+  onOpenSummary?: () => void;
+  onExportGoogleEarth?: () => void;
   currentLocationName?: string;
   language: 'fr' | 'ar';
   setLanguage: (lang: 'fr' | 'ar') => void;
@@ -18,6 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   onPrint,
   onQuickExport,
   onExportWord,
+  onOpenSummary,
+  onExportGoogleEarth,
   currentLocationName,
   language,
   setLanguage
@@ -50,6 +54,12 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'calculator' as const,
       label: isAr ? 'حاسبة الأبعاد' : 'Dimensionnement',
       icon: Calculator
+    },
+    {
+      id: 'ai' as const,
+      label: isAr ? 'مستشار الذكاء الاصطناعي ✨' : 'Conseiller IA ✨',
+      icon: Sparkles,
+      highlight: true
     },
     {
       id: 'looker' as const,
@@ -119,14 +129,38 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
+          {/* Google Earth KML Export Button */}
+          {onExportGoogleEarth && (
+            <button
+              onClick={onExportGoogleEarth}
+              title={isAr ? 'تنزيل حدود الحوض ومجرى الوادي لبرنامج Google Earth (.kml)' : 'Télécharger le fichier pour Google Earth (.kml)'}
+              className="hidden md:flex px-2 py-1.5 text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/40 hover:bg-amber-500/20 rounded-md transition-colors items-center gap-1 whitespace-nowrap cursor-pointer"
+            >
+              <Globe className="w-3.5 h-3.5 text-amber-400" />
+              <span>Google Earth</span>
+            </button>
+          )}
+
+          {/* Executive Summary Sheet Button */}
+          {onOpenSummary && (
+            <button
+              onClick={onOpenSummary}
+              title={isAr ? 'عرض بطاقة ملخص الحوض الفنية السريعة' : 'Fiche synthétique du bassin versant'}
+              className="hidden sm:flex px-2 py-1.5 text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/40 hover:bg-emerald-500/20 rounded-md transition-colors items-center gap-1 whitespace-nowrap cursor-pointer"
+            >
+              <Award className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{isAr ? 'بطاقة الحوض' : 'Fiche Synthèse'}</span>
+            </button>
+          )}
+
           {/* Word .doc Export Button */}
           <button
             onClick={onExportWord}
             title={isAr ? 'تصدير كامل الدراسة كملف وورد Microsoft Word (.doc)' : 'Exporter le rapport complet en document Word (.doc)'}
-            className="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap shadow-[0_0_12px_rgba(37,99,235,0.4)]"
+            className="px-2.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap shadow-[0_0_12px_rgba(37,99,235,0.4)] cursor-pointer"
           >
             <FileDown className="w-3.5 h-3.5" />
-            <span>{isAr ? 'وورد Word (.doc)' : 'Word (.doc)'}</span>
+            <span>{isAr ? 'وورد (.doc)' : 'Word (.doc)'}</span>
           </button>
 
           {/* Quick PDF Print Button */}

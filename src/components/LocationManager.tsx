@@ -25,6 +25,7 @@ import {
   ALGERIAN_GEO_DATABASE,
   GeoLocationResult
 } from '../utils/geoSearch';
+import { exportToGoogleEarthKml, exportToGeoJson } from '../utils/gisExport';
 
 interface LocationManagerProps {
   currentConfig: ProjectLocationConfig;
@@ -304,6 +305,60 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   };
 
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [isAiSearching, setIsAiSearching] = useState<boolean>(false);
+  const [aiDossier, setAiDossier] = useState<{
+    locationName: string;
+    lat: number;
+    lng: number;
+    watershedType: string;
+    estimatedAreaKm2: number;
+    estimatedSlopePercent: number;
+    estimatedQ100: number;
+    flashFloodRisk: string;
+    historicalFloodNote: string;
+    geologicalSummary: string;
+  } | null>(null);
+
+  // AI-Powered Semantic & Hydrological Place Search
+  const handleAiGeoSearch = async (queryParam?: string) => {
+    const q = (queryParam || searchQuery).trim();
+    if (!q) {
+      setSearchMessage('⚠️ يرجى كتابة اسم المدينة أو الوادي للبحث بالذكاء الاصطناعي (مثال: بومرداس، قسنطينة وادي الرمال، وادي ميزاب، وادي الحراش...)');
+      return;
+    }
+
+    setIsAiSearching(true);
+    setSearchMessage(null);
+
+    try {
+      const response = await fetch('/api/ai/geo-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, language: 'ar' })
+      });
+
+      const resData = await response.json();
+      if (resData.success && resData.data) {
+        const item = resData.data;
+        setAiDossier(item);
+
+        const lat = typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 36.75;
+        const lng = typeof item.lng === 'number' ? item.lng : parseFloat(item.lng) || 3.47;
+        const locName = item.locationName || q;
+
+        applyCoordinatesToMap(lat, lng, false, 15, `Bassin Versant - ${locName}`);
+        setGpsStatus(`✨ تم تحديد وتحليل الموقع بواسطة الذكاء الاصطناعي: ${locName} (${item.watershedType})`);
+        setSearchMessage(null);
+      } else {
+        throw new Error('AI search failed');
+      }
+    } catch (err) {
+      console.warn('AI Geo Search fallback to standard search:', err);
+      await handleSearch();
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
 
   // Multi-tier reliable City & Basin Search (Local Directory + Open-Meteo + Nominatim)
   const handleSearch = async (e?: React.FormEvent) => {
@@ -801,13 +856,109 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             </div>
             <button
               type="submit"
-              disabled={isSearching}
-              className="px-5 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs sm:text-sm font-bold rounded-xl border border-cyan-500/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-md active:scale-95 shrink-0"
+              disabled={isSearching || isAiSearching}
+              className="px-4 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs sm:text-sm font-bold rounded-xl border border-cyan-500/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-md active:scale-95 shrink-0"
             >
               {isSearching ? <Loader2 className="w-4 h-4 animate-spin text-cyan-400" /> : <Search className="w-4 h-4 text-cyan-400" />}
               <span>بحث (Chercher)</span>
             </button>
+            <button
+              type="button"
+              onClick={() => handleAiGeoSearch()}
+              disabled={isAiSearching || isSearching}
+              className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="بحث هيدرولوجي متقدم بالذكاء الاصطناعي مع تقدير خصائص الحوض وتاريخ الفيضانات"
+            >
+              {isAiSearching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>جاري البحث الذكي...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
+                  <span>بحث بالذكاء الاصطناعي ✨</span>
+                </>
+              )}
+            </button>
           </form>
+
+          {/* AI Hydrological Site Dossier Card */}
+          {aiDossier && (
+            <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-950/80 border border-indigo-500/50 shadow-xl space-y-3 animate-fadeIn">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-500/30 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/30 text-cyan-300 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white">
+                      بطاقة الموقع الهيدرولوجي بالذكاء الاصطناعي (Dossier Hydrologique IA)
+                    </span>
+                    <span className="text-[10px] text-cyan-300 block">
+                      {aiDossier.locationName} · {aiDossier.watershedType}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    خطر السيول: {aiDossier.flashFloodRisk}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAiDossier(null)}
+                    className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">الإحداثيات</span>
+                  <span className="font-mono text-cyan-300 font-bold">{aiDossier.lat.toFixed(4)}°, {aiDossier.lng.toFixed(4)}°</span>
+                </div>
+                <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">المساحة المقدرة</span>
+                  <span className="font-mono text-slate-200 font-bold">{aiDossier.estimatedAreaKm2} كم²</span>
+                </div>
+                <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">الانحدار التقديري</span>
+                  <span className="font-mono text-amber-300 font-bold">{aiDossier.estimatedSlopePercent}%</span>
+                </div>
+                <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">تدفق الذروة Q100</span>
+                  <span className="font-mono text-rose-400 font-bold">{aiDossier.estimatedQ100} م³/ث</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <div className="text-slate-300 flex items-start gap-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+                  <span className="text-amber-400 font-bold shrink-0">📜 السجل التاريخي:</span>
+                  <span>{aiDossier.historicalFloodNote}</span>
+                </div>
+                <div className="text-slate-300 flex items-start gap-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+                  <span className="text-cyan-400 font-bold shrink-0">🌍 طبيعة التربة:</span>
+                  <span>{aiDossier.geologicalSummary}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    applyCoordinatesToMap(aiDossier.lat, aiDossier.lng, false, 15, `Bassin Versant - ${aiDossier.locationName}`);
+                    setGpsStatus(`✅ تم اعتماد بيانات الموقع بالكامل للدراسة.`);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>تأكيد واعتماد هذا الموقع للدراسة</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Search Error / Guidance Message */}
           {searchMessage && (
@@ -866,24 +1017,37 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
               <span>VUE SATELLITE GOOGLE MAPS & LOCALISATION GPS</span>
             </div>
 
-            {/* Map Layer Switcher */}
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Google Earth KML Download Button */}
               <button
-                onClick={() => mapInstanceRef.current && setTileLayer('google_satellite', mapInstanceRef.current)}
-                className={`px-2.5 py-1 rounded transition-colors ${
-                  mapType === 'google_satellite' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white'
-                }`}
+                type="button"
+                onClick={() => exportToGoogleEarthKml(formData)}
+                title="تنزيل حدود الحوض ومجرى الوادي لفتحه في Google Earth (.kml)"
+                className="px-2.5 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
               >
-                🛰️ Satellite Google
+                <Globe className="w-3 h-3 text-amber-400" />
+                <span>Google Earth (.KML)</span>
               </button>
-              <button
-                onClick={() => mapInstanceRef.current && setTileLayer('osm_streets', mapInstanceRef.current)}
-                className={`px-2.5 py-1 rounded transition-colors ${
-                  mapType === 'osm_streets' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                🗺️ Rues / Plans
-              </button>
+
+              {/* Map Layer Switcher */}
+              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[11px]">
+                <button
+                  onClick={() => mapInstanceRef.current && setTileLayer('google_satellite', mapInstanceRef.current)}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    mapType === 'google_satellite' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🛰️ Satellite Google
+                </button>
+                <button
+                  onClick={() => mapInstanceRef.current && setTileLayer('osm_streets', mapInstanceRef.current)}
+                  className={`px-2.5 py-1 rounded transition-colors ${
+                    mapType === 'osm_streets' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🗺️ Rues / Plans
+                </button>
+              </div>
             </div>
           </div>
 

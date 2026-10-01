@@ -14,7 +14,9 @@ import {
   Download,
   CheckCircle2,
   ExternalLink,
-  Globe
+  Globe,
+  Sparkles,
+  Brain
 } from 'lucide-react';
 import {
   PROJECT_METADATA,
@@ -32,6 +34,7 @@ import { ArabicReportSections } from './ArabicReportSections';
 import { PRESET_LOCATIONS } from './LocationManager';
 import { FileDown } from 'lucide-react';
 import { getRealSatelliteImageUrl, getRealTopoImageUrl } from '../utils/satelliteImagery';
+import { ProtectionStructuresCalculator } from './ProtectionStructuresCalculator';
 
 interface ReportSatelliteMapProps {
   lat: number;
@@ -122,13 +125,21 @@ export interface ReportViewProps {
   currentLocationConfig?: ProjectLocationConfig;
   language?: 'fr' | 'ar';
   onExportWord?: () => void;
+  onOpenSummary?: () => void;
+  onExportGoogleEarth?: () => void;
+  onExportGeoJson?: () => void;
+  onNavigateToAi?: () => void;
 }
 
 export const ReportView: React.FC<ReportViewProps> = ({
   onNavigateToLocation,
   currentLocationConfig,
   language = 'ar',
-  onExportWord
+  onExportWord,
+  onOpenSummary,
+  onExportGoogleEarth,
+  onExportGeoJson,
+  onNavigateToAi
 }) => {
   const [activeChapter, setActiveChapter] = useState<string>('ch1');
   const [heroViewMode, setHeroViewMode] = useState<'google_satellite' | 'orthophoto_hd' | 'gis_raster'>('google_satellite');
@@ -264,6 +275,76 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 </button>
               </div>
             )}
+
+            {/* AI Hydrology Advisor Direct Launch Card */}
+            {onNavigateToAi && (
+              <div
+                onClick={onNavigateToAi}
+                className="cursor-pointer p-3.5 bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-950/80 border border-indigo-500/50 hover:border-cyan-400 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg group transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-indigo-500/20 text-cyan-300 flex items-center justify-center shrink-0 border border-indigo-400/40 group-hover:scale-105 transition-transform">
+                    <Sparkles className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>{isAr ? 'مستشار الذكاء الاصطناعي للهندسة الهيدرولوجية وإدارة الفيضانات' : 'Conseiller IA en Ingénierie Hydrologique & Inondations'}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono animate-pulse">
+                        Gemini 3.8 Flash
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-300 mt-0.5">
+                      {isAr
+                        ? 'تشخيص فوري لمخاطر فيضان الوادي، التحقق من أبعاد القنوات، وحوار فني تفاعلي مع الخبير الذكي'
+                        : 'Diagnostic instantané, audit du dimensionnement hydraulique et chat interactif avec l\'expert IA'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Brain className="w-4 h-4 text-slate-950" />
+                  <span>{isAr ? 'فتح مستشار الذكاء الاصطناعي ✨' : 'Consulter l\'IA ✨'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Quick GIS & Executive Summary Action Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              {onOpenSummary && (
+                <button
+                  type="button"
+                  onClick={onOpenSummary}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+                >
+                  <Award className="w-4 h-4 text-emerald-400" />
+                  <span>{isAr ? '📑 بطاقة ملخص الحوض الفنية' : '📑 Fiche Synthétique du Bassin'}</span>
+                </button>
+              )}
+
+              {onExportGoogleEarth && (
+                <button
+                  type="button"
+                  onClick={onExportGoogleEarth}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+                >
+                  <Globe className="w-4 h-4 text-amber-400" />
+                  <span>{isAr ? '🌍 تنزيل Google Earth (.KML)' : '🌍 Télécharger Google Earth (.KML)'}</span>
+                </button>
+              )}
+
+              {onExportGeoJson && (
+                <button
+                  type="button"
+                  onClick={onExportGeoJson}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+                >
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>{isAr ? '🗺️ تنزيل QGIS / ArcGIS (.GeoJSON)' : '🗺️ Télécharger QGIS / ArcGIS (.GeoJSON)'}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* COVER PAGE / EN-TÊTE OFFICIEL */}
@@ -1019,6 +1100,11 @@ export const ReportView: React.FC<ReportViewProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Interactive Sizing Calculator for Dalots, Canals and Basins */}
+              <div className="mt-8 pt-6 border-t border-slate-800">
+                <ProtectionStructuresCalculator config={loc} language={language} />
               </div>
             </div>
           </section>
