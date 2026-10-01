@@ -25,9 +25,20 @@ jobs:
           cache: 'gradle'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
+        run: |
+          echo "Setting up Android SDK..."
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          export ANDROID_HOME=$HOME/android-sdk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_ENV
+          
+          # Download command-line tools
+          curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          
+          # Accept licenses
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
