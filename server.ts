@@ -40,8 +40,8 @@ async function generateGeminiWithFallback(params: {
   systemInstruction?: string;
   temperature?: number;
 }) {
-  // Use gemini-3.1-flash-lite first for rapid and quota-safe responses, then gemini-3.8-flash
-  const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+  // Use gemini-2.5-flash first, then gemini-1.5-flash
+  const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
   let lastError: any = null;
 
   for (const model of models) {
@@ -185,7 +185,7 @@ app.post('/api/ai/diagnose', async (req, res) => {
 `;
 
     let responseText = '';
-    let usedModel = 'gemini-3.8-flash';
+    let usedModel = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({
@@ -261,7 +261,7 @@ app.post('/api/ai/chat', async (req, res) => {
     });
 
     let reply = '';
-    let modelName = 'gemini-3.8-flash';
+    let modelName = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({
@@ -328,7 +328,7 @@ app.post('/api/ai/dimensioning-advisor', async (req, res) => {
 `;
 
     let advice = '';
-    let modelName = 'gemini-3.8-flash';
+    let modelName = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({
@@ -389,7 +389,7 @@ app.post('/api/ai/geo-search', async (req, res) => {
 `;
 
     let dataObj: any = null;
-    let usedModel = 'gemini-3.1-flash-lite';
+    let usedModel = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({
@@ -457,7 +457,7 @@ app.post('/api/ai/review-chapter', async (req, res) => {
 `;
 
     let reviewText = '';
-    let usedModel = 'gemini-3.1-flash-lite';
+    let usedModel = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({
@@ -515,7 +515,7 @@ app.post('/api/ai/research-search', async (req, res) => {
 `;
 
     let researchResult = '';
-    let usedModel = 'gemini-3.1-flash-lite';
+    let usedModel = 'gemini-2.5-flash';
 
     try {
       const result = await generateGeminiWithFallback({

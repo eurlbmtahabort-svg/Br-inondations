@@ -305,7 +305,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-xs font-semibold tracking-wide">
               <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
-              <span>{isAr ? 'مدعوم بنموذج Google Gemini 3.8 Flash' : 'Propulsé par Google Gemini 3.8 Flash'}</span>
+              <span>{isAr ? 'مدعوم بنموذج Google Gemini 2.5 Flash' : 'Propulsé par Google Gemini 2.5 Flash'}</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             </div>
 
