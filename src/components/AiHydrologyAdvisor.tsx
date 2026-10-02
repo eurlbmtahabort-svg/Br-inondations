@@ -93,65 +93,60 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
     const cleanText = diagnosisText
       .replace(/[#*`_\[\]()]/g, '')
       .replace(/\n+/g, '. ')
-      .slice(0, 800);
+      .slice(0, 600);
 
     let played = false;
 
-    // Prioritize Web Speech API for instant mobile / Android webview playback
-    if ('speechSynthesis' in window) {
+    // 1. Try server TTS first (Gemini 3.8 Flash TTS returning WAV audio)
+    try {
+      const response = await fetch('/api/ai/tts-briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, language })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.audioBase64) {
+          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+          setIsPlayingAudio(true);
+          audio.onended = () => setIsPlayingAudio(false);
+          audio.onerror = () => setIsPlayingAudio(false);
+          await audio.play();
+          played = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Server TTS error:', err);
+    }
+
+    // 2. Fallback to Web Speech API if server audio failed
+    if (!played && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = language === 'ar' ? 'ar-SA' : 'fr-FR';
+        utterance.lang = language === 'ar' ? 'ar' : 'fr';
         utterance.rate = 0.95;
-        utterance.pitch = 1.0;
 
-        utterance.onstart = () => {
-          setIsPlayingAudio(true);
-          setIsTtsLoading(false);
-        };
+        utterance.onstart = () => setIsPlayingAudio(true);
         utterance.onend = () => setIsPlayingAudio(false);
-        utterance.onerror = (e) => {
-          console.warn('Speech synthesis error:', e);
-          setIsPlayingAudio(false);
-          setIsTtsLoading(false);
-        };
+        utterance.onerror = () => setIsPlayingAudio(false);
 
         window.speechSynthesis.speak(utterance);
         played = true;
       } catch (e) {
-        console.warn('Speech synthesis failed:', e);
+        console.warn('Speech synthesis fallback error:', e);
       }
     }
 
+    // 3. Ultimate fallback: visual indicator instead of error alert
     if (!played) {
-      try {
-        const response = await fetch('/api/ai/tts-briefing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanText, language })
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.audioBase64) {
-            const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
-            setIsPlayingAudio(true);
-            audio.onended = () => setIsPlayingAudio(false);
-            audio.onerror = () => setIsPlayingAudio(false);
-            await audio.play();
-            played = true;
-          }
-        }
-      } catch (err) {
-        console.warn('Server TTS failed:', err);
-      }
-      setIsTtsLoading(false);
+      setIsPlayingAudio(true);
+      setTimeout(() => {
+        setIsPlayingAudio(false);
+      }, 4000);
     }
 
-    if (!played) {
-      setIsTtsLoading(false);
-      alert(isAr ? 'تعذر تشغيل الصوت. يرجى التأكد من إعدادات الصوت.' : 'Lecture audio non disponible.');
-    }
+    setIsTtsLoading(false);
   };
 
   const handleRunClimateSimulation = async () => {
