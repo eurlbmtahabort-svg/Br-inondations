@@ -162,8 +162,8 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
       console.error('Diagnosis generation failed:', err);
       setDiagnosisError(
         isAr
-          ? 'تعذر الاتصال بخادم الذكاء الاصطناعي. تأكد من تشغيل الخادم وتوفر مفتاح الربط.'
-          : 'Échec de connexion au service IA. Vérifiez que le serveur est actif.'
+          ? `تعذر الاتصال بخادم الذكاء الاصطناعي: ${err.message || 'خطأ غير معروف'}`
+          : `Échec de connexion au service IA: ${err.message || 'Erreur inconnue'}`
       );
     } finally {
       setIsDiagnosing(false);
