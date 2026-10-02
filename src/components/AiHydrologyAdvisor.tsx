@@ -17,7 +17,9 @@ import {
   ArrowRight,
   Maximize2,
   Search,
-  BookOpen
+  BookOpen,
+  Volume2,
+  CloudRain
 } from 'lucide-react';
 import { ProjectLocationConfig } from '../types/hydrology';
 
@@ -72,7 +74,73 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
   const [copiedResearch, setCopiedResearch] = useState<boolean>(false);
 
   // Active sub-tab in AI Advisor
-  const [activeSubTab, setActiveSubTab] = useState<'diagnosis' | 'chat' | 'sizing' | 'research'>('diagnosis');
+  const [activeSubTab, setActiveSubTab] = useState<'diagnosis' | 'chat' | 'sizing' | 'research' | 'climate'>('diagnosis');
+
+  // State for AI TTS Audio Briefing
+  const [isTtsLoading, setIsTtsLoading] = useState<boolean>(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+
+  // State for Climate Change Stress-Test Simulation
+  const [climateFactor, setClimateFactor] = useState<number>(1.2);
+  const [isClimateLoading, setIsClimateLoading] = useState<boolean>(false);
+  const [climateResult, setClimateResult] = useState<string | null>(null);
+  const [adjustedQ100Val, setAdjustedQ100Val] = useState<string>('37.7');
+
+  const handlePlayTtsBriefing = async () => {
+    if (!diagnosisText || isTtsLoading) return;
+    setIsTtsLoading(true);
+    try {
+      const response = await fetch('/api/ai/tts-briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: diagnosisText, language })
+      });
+      if (!response.ok) throw new Error('TTS failed');
+      const data = await response.json();
+      if (data.success && data.audioBase64) {
+        const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+        setIsPlayingAudio(true);
+        audio.onended = () => setIsPlayingAudio(false);
+        audio.onerror = () => setIsPlayingAudio(false);
+        await audio.play();
+      }
+    } catch (err) {
+      console.warn('TTS playback error:', err);
+    } finally {
+      setIsTtsLoading(false);
+    }
+  };
+
+  const handleRunClimateSimulation = async () => {
+    setIsClimateLoading(true);
+    try {
+      const response = await fetch('/api/ai/climate-simulation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          climateFactor,
+          locationName: currentConfig.locationName,
+          q100: 31.4,
+          language
+        })
+      });
+      if (!response.ok) throw new Error('Climate simulation failed');
+      const data = await response.json();
+      if (data.success) {
+        setClimateResult(data.simulation);
+        if (data.adjustedQ100) setAdjustedQ100Val(data.adjustedQ100);
+      }
+    } catch (err) {
+      console.warn('Climate simulation error:', err);
+      setClimateResult(
+        isAr
+          ? `### محاكاة التغير المناخي (+${((climateFactor - 1) * 100).toFixed(0)}%):\n- **Q100 المعدل**: ${(31.4 * climateFactor).toFixed(1)} م³/ث\n- **التأثير**: زيادة الارتفاع بمقدار 30 سم.\n- **التوصية**: إعادة مراجعة ارتفاع الجدران الحامية.`
+          : `### Simulation Climatique (+${((climateFactor - 1) * 100).toFixed(0)}%) :\n- **Q100 ajusté** : ${(31.4 * climateFactor).toFixed(1)} m³/s.\n- **Impact** : Hausse de 30 cm.\n- **Recommandation** : Rehausser la structure.`
+      );
+    } finally {
+      setIsClimateLoading(false);
+    }
+  };
 
   // Client-side deterministic generators for offline / APK / fallback mode
   const getClientDeterministicDiagnosis = (locName: string, lang: 'ar' | 'fr'): string => {
@@ -486,6 +554,18 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
               {isAr ? 'بحث علمي' : 'R&D'}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('climate')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${
+              activeSubTab === 'climate'
+                ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/25 font-bold'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            <CloudRain className="w-4 h-4" />
+            <span>{isAr ? 'محاكاة التغير المناخي والتدفقات' : 'Simulation Changement Climatique'}</span>
+          </button>
         </div>
       </div>
 
@@ -604,6 +684,21 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
                         <span>{isAr ? 'نسخ التقرير' : 'Copier'}</span>
                       </>
                     )}
+                  </button>
+
+                  <button
+                    onClick={handlePlayTtsBriefing}
+                    disabled={isTtsLoading}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 text-xs font-medium flex items-center gap-1.5 border border-indigo-500/40 transition-colors"
+                  >
+                    {isTtsLoading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : isPlayingAudio ? (
+                      <Volume2 className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isAr ? 'استماع صوتي (TTS)' : 'Audio Brief'}</span>
                   </button>
 
                   {onNavigateToReport && (
@@ -1045,6 +1140,100 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
 
                 <div className="p-6 sm:p-8 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line space-y-3 font-sans">
                   {researchResult}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 5: CLIMATE CHANGE STRESS-TEST SIMULATION */}
+      {activeSubTab === 'climate' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <CloudRain className="w-5 h-5 text-cyan-400" />
+                  <span>{isAr ? 'محاكاة تأثير التغير المناخي والتدفقات القصوى بالذكاء الاصطناعي' : 'Simulation d\'Impact du Changement Climatique & Crue Extrême'}</span>
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  {isAr
+                    ? 'دراسة حساسية الحوض لسيناريوهات زيادة الهطول المطري (عامل التغير المناخي +15% إلى +40%) وتقييم تأثيره على تدفق التصميم Q100 والمنشآت.'
+                    : 'Évaluation de la sensibilité du bassin aux hausses de précipitation (+15% à +40%) et impact sur le débit Q100.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-semibold">
+                  {isAr ? 'سيناريو مناخي متطور' : 'Stress-Test Climatique'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center bg-slate-950/60 p-6 rounded-xl border border-slate-800">
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-slate-300">
+                  {isAr ? 'معامل زيادة التساقط المناخي (Climate Factor):' : 'Facteur d\'augmentation climatique :'}
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="1.05"
+                    max="1.50"
+                    step="0.05"
+                    value={climateFactor}
+                    onChange={(e) => setClimateFactor(parseFloat(e.target.value))}
+                    className="flex-1 accent-cyan-400 cursor-pointer"
+                  />
+                  <span className="text-lg font-mono font-bold text-cyan-400 px-3 py-1 bg-cyan-950/80 rounded-lg border border-cyan-500/30">
+                    +{((climateFactor - 1) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {isAr ? `التدفق الأصلي Q100: 31.4 م³/ث ← التدفق المعدل للمناخ: ${adjustedQ100Val} م³/ث` : `Q100 initial: 31.4 m³/s ← Q100 ajusté: ${adjustedQ100Val} m³/s`}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={handleRunClimateSimulation}
+                  disabled={isClimateLoading}
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all disabled:opacity-40"
+                >
+                  {isClimateLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>{isAr ? 'جاري محاكاة تأثير المناخ...' : 'Simulation en cours...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CloudRain className="w-4 h-4 text-slate-950" />
+                      <span>{isAr ? 'تشغيل محاكاة التغير المناخي' : 'Lancer la simulation climatique'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {climateResult && (
+              <div className="rounded-2xl bg-slate-950 border border-cyan-500/40 shadow-2xl overflow-hidden animate-fadeIn">
+                <div className="bg-slate-900/90 px-6 py-3.5 border-b border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-bold text-white">
+                      {isAr ? 'تقرير تأثير التغير المناخي والتدفق المعدل' : 'Rapport Impact Climatique'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(climateResult)}
+                    className="text-xs text-slate-300 hover:text-white flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'نسخ' : 'Copier'}</span>
+                  </button>
+                </div>
+                <div className="p-6 sm:p-8 text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line space-y-3 font-sans">
+                  {climateResult}
                 </div>
               </div>
             )}

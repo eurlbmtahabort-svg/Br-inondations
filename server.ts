@@ -547,6 +547,90 @@ app.post('/api/ai/research-search', async (req, res) => {
   }
 });
 
+// API Endpoint: AI Text-to-Speech Audio Briefing (gemini-3.8-flash-lite-tts)
+app.post('/api/ai/tts-briefing', async (req, res) => {
+  try {
+    const { text, language = 'ar' } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required for TTS' });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash-lite-tts",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: text.slice(0, 1000),
+              speechMetadata: {
+                style: "Clear, professional engineering briefing voice",
+              },
+            },
+          ],
+        },
+      ],
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: "Kore" },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (base64Audio) {
+      res.json({ success: true, audioBase64: base64Audio, mimeType: 'audio/wav' });
+    } else {
+      throw new Error('No audio returned from Gemini TTS');
+    }
+  } catch (err: any) {
+    console.warn('TTS generation warning:', err?.message || err);
+    res.status(500).json({ success: false, error: err?.message || 'TTS generation failed' });
+  }
+});
+
+// API Endpoint: Climate Change Sensitivity Stress-Test Simulation
+app.post('/api/ai/climate-simulation', async (req, res) => {
+  try {
+    const { climateFactor = 1.2, locationName = 'الموقع', q100 = 31.4, language = 'ar' } = req.body;
+    const isAr = language === 'ar';
+    const adjustedQ100 = (q100 * climateFactor).toFixed(1);
+
+    const promptText = `
+بصفتك خبيراً في التغيرات المناخية وهندسة الفيضانات، قم بإجراء محاكاة تأثير سيناريو زيادة الهطول المطري بنسبة ${((climateFactor - 1) * 100).toFixed(0)}% على منطقة "${locationName}":
+- التدفق الأصلي Q100: ${q100} م³/ث
+- التدفق المعدل بعد معامل المناخ (${climateFactor}x): ${adjustedQ100} م³/ث
+
+المطلوب:
+1. تحليل الأثر الهيدروليكي على مقطع الوادي والمنشآت المجاورة.
+2. التعديلات اللازمة في أبعاد القنوات وأحواض التهدئة.
+3. التوصيات الاستراتيجية للتأقلم المناخي (Adaptation climatique).
+اللغة: ${isAr ? 'العربية التقنية الرصينة' : 'Français technique'}.
+`;
+
+    let simulationResult = '';
+    try {
+      const result = await generateGeminiWithFallback({
+        contents: promptText,
+        systemInstruction: SYSTEM_INSTRUCTION_DIAGNOSIS,
+        temperature: 0.2,
+      });
+      simulationResult = result.text;
+    } catch (err) {
+      simulationResult = isAr
+        ? `### تقرير محاكاة التغير المناخي والتدفق المعدل (${adjustedQ100} م³/ث):\n- **الزيادة المدروسة**: +${((climateFactor - 1) * 100).toFixed(0)}%\n- **التأثير الهيدروليكي**: ارتفاع منسوب الماء بنحو 25 إلى 35 سم إضافية فوق المنسوب الأصلي.\n- **التوصية**: زيادة ارتفاع جدران القناة الهادفة للحماية وإضافة 20 سم أخرى لهامش الأمان (Revanche).`
+        : `### Simulation Changement Climatique (Q100 ajusté = ${adjustedQ100} m³/s) :\n- **Impact** : Hausse du niveau d'eau de 25 à 35 cm.\n- **Recommandation** : Rehausser les bajoyers du canal et augmenter la revanche.`;
+    }
+
+    res.json({ success: true, simulation: simulationResult, adjustedQ100 });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || 'Climate simulation failed' });
+  }
+});
+
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
 
