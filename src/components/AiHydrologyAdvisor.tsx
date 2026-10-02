@@ -76,78 +76,50 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
   // Active sub-tab in AI Advisor
   const [activeSubTab, setActiveSubTab] = useState<'diagnosis' | 'chat' | 'sizing' | 'research' | 'climate'>('diagnosis');
 
-  // State for AI TTS Audio Briefing
+  // State for AI TTS Audio Briefing & Modal
   const [isTtsLoading, setIsTtsLoading] = useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [showAudioModal, setShowAudioModal] = useState<boolean>(false);
+  const [audioModalText, setAudioModalText] = useState<string>('');
+
+  const handleOpenAudioModal = () => {
+    if (!diagnosisText) return;
+    const clean = diagnosisText
+      .replace(/[#*`_\[\]()]/g, '')
+      .replace(/\n+/g, '. ')
+      .slice(0, 800);
+    setAudioModalText(clean);
+    setShowAudioModal(true);
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = language === 'ar' ? 'ar' : 'fr';
+        utterance.rate = 0.95;
+        utterance.onstart = () => setIsPlayingAudio(true);
+        utterance.onend = () => setIsPlayingAudio(false);
+        utterance.onerror = () => setIsPlayingAudio(false);
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn('Speech synthesis open error:', e);
+      }
+    }
+  };
+
+  const stopModalSpeech = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlayingAudio(false);
+    setShowAudioModal(false);
+  };
 
   // State for Climate Change Stress-Test Simulation
   const [climateFactor, setClimateFactor] = useState<number>(1.2);
   const [isClimateLoading, setIsClimateLoading] = useState<boolean>(false);
   const [climateResult, setClimateResult] = useState<string | null>(null);
   const [adjustedQ100Val, setAdjustedQ100Val] = useState<string>('37.7');
-
-  const handlePlayTtsBriefing = async () => {
-    if (!diagnosisText || isTtsLoading) return;
-    setIsTtsLoading(true);
-
-    const cleanText = diagnosisText
-      .replace(/[#*`_\[\]()]/g, '')
-      .replace(/\n+/g, '. ')
-      .slice(0, 600);
-
-    let played = false;
-
-    // 1. Try server TTS first (Gemini 3.8 Flash TTS returning WAV audio)
-    try {
-      const response = await fetch('/api/ai/tts-briefing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, language })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.audioBase64) {
-          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
-          setIsPlayingAudio(true);
-          audio.onended = () => setIsPlayingAudio(false);
-          audio.onerror = () => setIsPlayingAudio(false);
-          await audio.play();
-          played = true;
-        }
-      }
-    } catch (err) {
-      console.warn('Server TTS error:', err);
-    }
-
-    // 2. Fallback to Web Speech API if server audio failed
-    if (!played && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = language === 'ar' ? 'ar' : 'fr';
-        utterance.rate = 0.95;
-
-        utterance.onstart = () => setIsPlayingAudio(true);
-        utterance.onend = () => setIsPlayingAudio(false);
-        utterance.onerror = () => setIsPlayingAudio(false);
-
-        window.speechSynthesis.speak(utterance);
-        played = true;
-      } catch (e) {
-        console.warn('Speech synthesis fallback error:', e);
-      }
-    }
-
-    // 3. Ultimate fallback: visual indicator instead of error alert
-    if (!played) {
-      setIsPlayingAudio(true);
-      setTimeout(() => {
-        setIsPlayingAudio(false);
-      }, 4000);
-    }
-
-    setIsTtsLoading(false);
-  };
 
   const handleRunClimateSimulation = async () => {
     setIsClimateLoading(true);
@@ -725,7 +697,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
                   </button>
 
                   <button
-                    onClick={handlePlayTtsBriefing}
+                    onClick={handleOpenAudioModal}
                     disabled={isTtsLoading}
                     className="px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 text-xs font-medium flex items-center gap-1.5 border border-indigo-500/40 transition-colors"
                   >
@@ -1275,6 +1247,66 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Audio Briefing Modal */}
+      {showAudioModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                  <Volume2 className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {isAr ? 'مشغل التقرير الصوتي (Audio Briefing)' : 'Lecteur Audio du Rapport'}
+                  </h3>
+                  <p className="text-xs text-slate-400">{currentConfig.locationName}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={stopModalSpeech}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs sm:text-sm text-slate-200 max-h-48 overflow-y-auto leading-relaxed">
+              {audioModalText}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => {
+                  if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(audioModalText);
+                    utterance.lang = language === 'ar' ? 'ar' : 'fr';
+                    utterance.rate = 0.95;
+                    utterance.onstart = () => setIsPlayingAudio(true);
+                    utterance.onend = () => setIsPlayingAudio(false);
+                    utterance.onerror = () => setIsPlayingAudio(false);
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>{isAr ? 'إعادة التشغيل (Replay)' : 'Rejouer'}</span>
+              </button>
+
+              <button
+                onClick={stopModalSpeech}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
+              >
+                {isAr ? 'إغلاق (Close)' : 'Fermer'}
+              </button>
+            </div>
           </div>
         </div>
       )}
