@@ -99,6 +99,10 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
 }) => {
   // Form State
   const [formData, setFormData] = useState<ProjectLocationConfig>(currentConfig);
+
+  useEffect(() => {
+    setFormData(currentConfig);
+  }, [currentConfig]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);

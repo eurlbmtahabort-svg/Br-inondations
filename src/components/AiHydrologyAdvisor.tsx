@@ -102,16 +102,39 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
     }
   };
 
-  const handleOpenAudioModal = () => {
+  const handleOpenAudioModal = async () => {
     if (!diagnosisText) return;
     const clean = diagnosisText
       .replace(/[#*`_\[\]()]/g, '')
       .replace(/\n+/g, '. ')
-      .slice(0, 800);
+      .slice(0, 600);
     setAudioModalText(clean);
     setShowAudioModal(true);
-    playBeep();
+    setIsTtsLoading(true);
 
+    try {
+      const response = await fetch('/api/ai/tts-briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: clean, language })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.audioBase64) {
+          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+          setIsPlayingAudio(true);
+          audio.onended = () => setIsPlayingAudio(false);
+          audio.onerror = () => setIsPlayingAudio(false);
+          await audio.play();
+          setIsTtsLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Server TTS fetch error in modal:', err);
+    }
+
+    // Fallback to Web Speech API
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
@@ -121,7 +144,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         utterance.onstart = () => setIsPlayingAudio(true);
         utterance.onend = () => setIsPlayingAudio(false);
         utterance.onerror = () => setIsPlayingAudio(false);
-        
+
         const voices = window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
           const matched = voices.find(v => v.lang.startsWith(language === 'ar' ? 'ar' : 'fr'));
@@ -133,6 +156,8 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         console.warn('Speech synthesis open error:', e);
       }
     }
+
+    setIsTtsLoading(false);
   };
 
   const stopModalSpeech = () => {
