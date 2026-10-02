@@ -4,6 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // Initialize GoogleGenAI SDK server-side
@@ -133,15 +135,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', hasApiKey: !!process.env.GEMINI_API_KEY });
 });
 
-// Log all requests for debugging
-app.use((req, res, next) => {
-  console.log(`[${req.method}] ${req.url}`);
-  next();
-});
-
-// API Endpoint: Automated Watershed Diagnostic
+// Automated Watershed Diagnostic
 app.post('/api/ai/diagnose', async (req, res) => {
-  console.log('Received diagnosis request, API key exists:', !!process.env.GEMINI_API_KEY);
+  console.log('Received diagnosis request, body:', JSON.stringify(req.body));
   try {
     const {
       locationName,
@@ -564,7 +560,7 @@ async function startServer() {
     // Serve static files from dist
     app.use(express.static(path.resolve(__dirname, 'dist')));
     // Serve index.html for all non-api routes
-    app.get(/^(?!\/api).*/, (req, res) => {
+    app.get(/^((?!\/api).)*$/, (req, res) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   }
