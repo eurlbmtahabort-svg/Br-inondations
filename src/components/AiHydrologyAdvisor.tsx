@@ -89,26 +89,51 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
   const handlePlayTtsBriefing = async () => {
     if (!diagnosisText || isTtsLoading) return;
     setIsTtsLoading(true);
+
+    const cleanText = diagnosisText
+      .replace(/[#*`_\[\]()]/g, '')
+      .replace(/\n+/g, '. ')
+      .slice(0, 800);
+
+    let played = false;
+
     try {
       const response = await fetch('/api/ai/tts-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: diagnosisText, language })
+        body: JSON.stringify({ text: cleanText, language })
       });
-      if (!response.ok) throw new Error('TTS failed');
-      const data = await response.json();
-      if (data.success && data.audioBase64) {
-        const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
-        setIsPlayingAudio(true);
-        audio.onended = () => setIsPlayingAudio(false);
-        audio.onerror = () => setIsPlayingAudio(false);
-        await audio.play();
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.audioBase64) {
+          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+          setIsPlayingAudio(true);
+          audio.onended = () => setIsPlayingAudio(false);
+          audio.onerror = () => setIsPlayingAudio(false);
+          await audio.play();
+          played = true;
+        }
       }
     } catch (err) {
-      console.warn('TTS playback error:', err);
-    } finally {
-      setIsTtsLoading(false);
+      console.warn('Server TTS failed, falling back to Web Speech API:', err);
     }
+
+    if (!played && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = language === 'ar' ? 'ar-SA' : 'fr-FR';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsPlayingAudio(true);
+      utterance.onend = () => setIsPlayingAudio(false);
+      utterance.onerror = () => setIsPlayingAudio(false);
+
+      window.speechSynthesis.speak(utterance);
+      played = true;
+    }
+
+    setIsTtsLoading(false);
   };
 
   const handleRunClimateSimulation = async () => {
