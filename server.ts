@@ -128,8 +128,20 @@ function getDeterministicHydrologyDiagnosis(params: any): string {
   }
 }
 
+// API Endpoint: Health Check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', hasApiKey: !!process.env.GEMINI_API_KEY });
+});
+
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.url}`);
+  next();
+});
+
 // API Endpoint: Automated Watershed Diagnostic
 app.post('/api/ai/diagnose', async (req, res) => {
+  console.log('Received diagnosis request, API key exists:', !!process.env.GEMINI_API_KEY);
   try {
     const {
       locationName,
