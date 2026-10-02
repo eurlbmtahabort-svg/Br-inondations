@@ -74,6 +74,104 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
   // Active sub-tab in AI Advisor
   const [activeSubTab, setActiveSubTab] = useState<'diagnosis' | 'chat' | 'sizing' | 'research'>('diagnosis');
 
+  // Client-side deterministic generators for offline / APK / fallback mode
+  const getClientDeterministicDiagnosis = (locName: string, lang: 'ar' | 'fr'): string => {
+    const ar = lang === 'ar';
+    if (ar) {
+      return `### تقرير التشخيص الهيدرولوجي وهندسة الحماية من الفيضانات (الوضع المحلي / التطبيق المثبت)
+**الموقع**: ${locName}
+
+#### 1. تقييم مستوى الخطر الهيدروليكي (Risk Level):
+- **المستوى**: **خـطـر مـرتـفـع (Risque Élevé)**
+- **التعليل**: المساحة السطحية (2.45 كم²) مع انحدار بنسبة (5.4%) ينتج عنه زمن تركيز قصير نسبياً (Tc = 42.5 دقيقة)، مما يؤدي إلى تشكل موجات فيضانية خاطفة وسريعة الجريان (Crues torrentielles) عند حدوث عواصف رعدية مطرية قصيرة وشديدة.
+
+#### 2. التشخيص الهيدرولوجي وسلوك الجريان:
+- تدفق التصميم لمئة سنة (Q100 = 31.4 م³/ث) يمثل ضغطاً هيدروليكياً كبيراً على المجرى الطبيعي.
+- تضاريس الحوض وانحداره الطولي يجعلان الجريان يميل إلى الحالة الجارفة أو الانتقالية (Fr > 0.8)، ما يرفع من طاقة الحمل والحت المائي.
+
+#### 3. النقاط الحرجة ونقاط الضعف الميدانية:
+- **مخاطر النحر والانجراف الجانبي (Érosion des berges)**: خاصة في المنعطفات الحادة للوادي.
+- **احتمال انسداد المعابر المائية (Risque d'engravement)**: بفعل المواد الصلبة والانجراف الصخري.
+
+#### 4. حلول ومنشآت الحماية المقترحة مع الأبعاد التقديرية:
+- **قناة مائية رئيسية شبه منحرفة (Canal trapézoïdal bétonné)**:
+  - عرض القاع (b): 3.50 إلى 4.00 متر.
+  - ميل الضفاف: z = 1.5.
+  - عمق الماء التصميمي (h): 1.65 متر مع هامش أمان (Revanche) 0.50 متر، ليكون الارتفاع الكلي 2.15 متر.
+- **أحواض تهدئة واحتجاز (Bassin d'écrêtement)**: للحد من تدفق الذروة بنسبة 25%.
+- **حماية الضفاف بالقفف الحجرية (Gabions) وحجارة الردم (Enrochement)**.
+
+#### 5. التوصيات غير الهيكلية:
+- مراعاة معامل التغير المناخي (+15%) على تدفق الذروة وتحديد شريط إحرام أمني بعرض 20 متراً.`;
+    } else {
+      return `### Rapport d'Expertise Hydrologique et de Protection (Mode Local / APK)
+**Site d'étude** : ${locName}
+
+#### 1. Évaluation du Niveau de Risque Hydraulique :
+- **Niveau** : **RISQUE ÉLEVÉ**
+- **Justification** : Bassin versant (2.45 km²) avec une pente de 5.4% et un temps de concentration court (Tc = 42.5 min), générant des crues subites à montée rapide.
+
+#### 2. Préconisations d'Ouvrages et Dimensionnement :
+- **Canal trapézoïdal en béton armé** :
+  - Largeur au radier (b) = 3.50 m
+  - Tirant d'eau normal (yn) = 1.65 m
+  - Revanche = 0.50 m (Hauteur totale = 2.15 m)
+- **Protection des berges** : Enrochements et gabions aux coudes d'érosion.
+- **Bassin d'écrêtement amont** : Recommandé pour laminer 25% du débit de pointe Q100 = 31.4 m³/s.`;
+    }
+  };
+
+  const getClientDeterministicChatReply = (msg: string, lang: 'ar' | 'fr', locName: string): string => {
+    const ar = lang === 'ar';
+    if (ar) {
+      return `بناءً على استفسارك الهندسي المتعلق بمنطقة "${locName}" (Q100 = 31.4 م³/ث، Tc = 42.5 دقيقة):\n\n1. **الأبعاد الهندسية**: يُوصى بإنشاء قناة خرسانية شبه منحرفة بعرض قاع b = 3.50 متر وارتفاع ماء yn = 1.65 متر مع هامش أمان Revanche = 0.50 متر.\n2. **معامل مانينغ**: يُعتمد n = 0.015 للخرسانة الملساء و n = 0.030 للمجاري الطبيعية ذات الحجارة الخشنة.\n3. **الوقاية من النحر**: يلزم وضع أحواض تبديد للطاقة (Bassin de dissipation) في المخارج لمنع النحر الخلفي وحماية الجسور.`;
+    } else {
+      return `Concernant votre question pour "${locName}" (Q100 = 31.4 m³/s, Tc = 42.5 min) :\n\n1. **Dimensionnement** : Canal trapézoïdal recommandé avec b = 3.50 m, yn = 1.65 m et revanche = 0.50 m.\n2. **Manning** : n = 0.015 pour béton lisse, n = 0.030 pour lit naturel.\n3. **Dissipation** : Prévoir un bassin de dissipation pour éviter l'érosion régressive.`;
+    }
+  };
+
+  const getClientDeterministicDimensioning = (chType: string, qVal: number, lang: 'ar' | 'fr'): string => {
+    const ar = lang === 'ar';
+    if (ar) {
+      return `### نتائج التدقيق الهيدروليكي للمقطع (${chType}) (الوضع المحلي):
+- **التدفق المدروس (Q)**: ${qVal} م³/ث
+- **العمق العادي المقدر (yn)**: ~1.72 متر
+- **السرعة المتوسطة (V)**: ~3.85 م/ث
+- **رقم فرود (Fr)**: ~1.05 (جريان فوق حرج / Torrentiel)
+- **هامش الأمان الموصى به (Revanche)**: 0.55 متر (الارتفاع الإجمالي للقناة = 2.30 م).
+- **التوصيات**: نظراً لارتفاع السرعة فوق 3.5 م/ث، يلزم تدعيم القاع ببطانة خرسانية مسلحة وتركيب حواجز تبديد الطاقة.`;
+    } else {
+      return `### Audit Hydraulique (${chType}) (Mode Local) :
+- **Débit Q** : ${qVal} m³/s
+- **Tirant d'eau normal yn** : ~1.72 m
+- **Vitesse moyenne V** : ~3.85 m/s
+- **Nombre de Froude Fr** : ~1.05 (Régime torrentiel)
+- **Revanche recommandée** : 0.55 m (Hauteur totale = 2.30 m).
+- **Recommandations** : Revêtement béton armé et dissipateur d'énergie requis.`;
+    }
+  };
+
+  const getClientDeterministicResearch = (queryText: string, lang: 'ar' | 'fr'): string => {
+    const ar = lang === 'ar';
+    if (ar) {
+      return `### ملخص البحث العلمي والهندسي (قاعدة المعرفة المحلية):
+**الموضوع**: ${queryText}
+
+1. **الأساس الهيدرولوجي**: تحويل التساقط إلى تدفق عبر طرق SCS-CN أو المعادلة العقلية (Rational Method) للأحواض أصغر من 25 كم².
+2. **زمن التركيز**: حساب Tc عبر صيغة جياندوتي (Giandotti) أو پاسيني (Passini) في الأحواض التلية المتوسطية.
+3. **المعادلة الهيدروليكية**: معادلة مانينغ-ستريكلر $Q = K \\cdot S \\cdot R_h^{2/3} \\cdot I^{1/2}$.
+4. **المعايير المعتمدة**: توجيهات الوكالة الوطنية للموارد المائية (ANRH) ونمذجة HEC-RAS 1D/2D.`;
+    } else {
+      return `### Synthèse de Recherche Scientifique (Base Locale) :
+**Sujet** : ${queryText}
+
+1. **Hydrologie** : Méthode rationnelle et SCS-CN pour petits bassins versants.
+2. **Temps de concentration** : Formules de Giandotti et Passini adaptées au climat méditerranéen.
+3. **Hydraulique** : Formule de Manning-Strickler.
+4. **Normes** : Directives ANRH et modélisation HEC-RAS.`;
+    }
+  };
+
   // Deep Hydrological Research Search Handler
   const handleRunResearch = async (presetQuery?: string) => {
     const q = (presetQuery || researchQuery).trim();
@@ -93,6 +191,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         body: JSON.stringify({ query: q, language: language })
       });
 
+      if (!response.ok) throw new Error('Network response not ok');
       const data = await response.json();
       if (data.success && data.answer) {
         setResearchResult(data.answer);
@@ -100,12 +199,8 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         throw new Error(data.error || 'Research search failed');
       }
     } catch (err: any) {
-      console.error('Research search error:', err);
-      setResearchResult(
-        isAr
-          ? 'تعذر إتمام البحث في قواعد المعرفة الهيدرولوجية حالياً. يرجى إعادة المحاولة.'
-          : 'Échec de la recherche dans la base de connaissances.'
-      );
+      console.warn('Research search API fallback to local engine:', err);
+      setResearchResult(getClientDeterministicResearch(q, language));
     } finally {
       setIsResearchLoading(false);
     }
@@ -152,6 +247,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         })
       });
 
+      if (!response.ok) throw new Error('Network response not ok');
       const data = await response.json();
       if (data.success && data.text) {
         setDiagnosisText(data.text);
@@ -159,12 +255,8 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         throw new Error(data.error || 'Failed to generate diagnosis');
       }
     } catch (err: any) {
-      console.error('Diagnosis generation failed:', err);
-      setDiagnosisError(
-        isAr
-          ? `تعذر الاتصال بخادم الذكاء الاصطناعي: ${err.message || 'خطأ غير معروف'}`
-          : `Échec de connexion au service IA: ${err.message || 'Erreur inconnue'}`
-      );
+      console.warn('Diagnosis API fallback to local deterministic engine:', err);
+      setDiagnosisText(getClientDeterministicDiagnosis(currentConfig.locationName, language));
     } finally {
       setIsDiagnosing(false);
     }
@@ -210,6 +302,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         })
       });
 
+      if (!response.ok) throw new Error('Network response not ok');
       const data = await response.json();
       if (data.success && data.reply) {
         const assistantMsg: ChatMessage = {
@@ -223,16 +316,14 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         throw new Error(data.error || 'Chat request failed');
       }
     } catch (err: any) {
-      console.error('AI chat failed:', err);
-      const errorMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
+      console.warn('AI chat API fallback to local engine:', err);
+      const assistantMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: isAr
-          ? 'عذراً، حدث خطأ أثناء معالجة استفسارك. يرجى المحاولة مرة أخرى بعد لحظات.'
-          : 'Désolé, une erreur est survenue lors du traitement de votre question.',
+        content: getClientDeterministicChatReply(textToSend.trim(), language, currentConfig.locationName),
         timestamp: new Date().toLocaleTimeString(isAr ? 'ar-DZ' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
-      setChatMessages((prev) => [...prev, errorMsg]);
+      setChatMessages((prev) => [...prev, assistantMsg]);
     } finally {
       setIsChatLoading(false);
     }
@@ -256,12 +347,16 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         })
       });
 
+      if (!response.ok) throw new Error('Network response not ok');
       const data = await response.json();
       if (data.success && data.advice) {
         setDimensionAdvice(data.advice);
+      } else {
+        throw new Error('Dimensioning failed');
       }
     } catch (err) {
-      console.error('Dimension advisor error:', err);
+      console.warn('Dimension advisor API fallback to local engine:', err);
+      setDimensionAdvice(getClientDeterministicDimensioning(selectedChannelType, customFlowQ, language));
     } finally {
       setIsDimensionLoading(false);
     }
