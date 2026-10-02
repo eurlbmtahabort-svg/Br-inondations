@@ -82,6 +82,26 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
   const [showAudioModal, setShowAudioModal] = useState<boolean>(false);
   const [audioModalText, setAudioModalText] = useState<string>('');
 
+  const playBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const handleOpenAudioModal = () => {
     if (!diagnosisText) return;
     const clean = diagnosisText
@@ -90,6 +110,7 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
       .slice(0, 800);
     setAudioModalText(clean);
     setShowAudioModal(true);
+    playBeep();
 
     if ('speechSynthesis' in window) {
       try {
@@ -100,6 +121,13 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
         utterance.onstart = () => setIsPlayingAudio(true);
         utterance.onend = () => setIsPlayingAudio(false);
         utterance.onerror = () => setIsPlayingAudio(false);
+        
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) {
+          const matched = voices.find(v => v.lang.startsWith(language === 'ar' ? 'ar' : 'fr'));
+          if (matched) utterance.voice = matched;
+        }
+
         window.speechSynthesis.speak(utterance);
       } catch (e) {
         console.warn('Speech synthesis open error:', e);
