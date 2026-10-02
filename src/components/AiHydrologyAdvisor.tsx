@@ -97,43 +97,61 @@ export const AiHydrologyAdvisor: React.FC<AiHydrologyAdvisorProps> = ({
 
     let played = false;
 
-    try {
-      const response = await fetch('/api/ai/tts-briefing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, language })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.audioBase64) {
-          const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+    // Prioritize Web Speech API for instant mobile / Android webview playback
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = language === 'ar' ? 'ar-SA' : 'fr-FR';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
           setIsPlayingAudio(true);
-          audio.onended = () => setIsPlayingAudio(false);
-          audio.onerror = () => setIsPlayingAudio(false);
-          await audio.play();
-          played = true;
-        }
+          setIsTtsLoading(false);
+        };
+        utterance.onend = () => setIsPlayingAudio(false);
+        utterance.onerror = (e) => {
+          console.warn('Speech synthesis error:', e);
+          setIsPlayingAudio(false);
+          setIsTtsLoading(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+        played = true;
+      } catch (e) {
+        console.warn('Speech synthesis failed:', e);
       }
-    } catch (err) {
-      console.warn('Server TTS failed, falling back to Web Speech API:', err);
     }
 
-    if (!played && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = language === 'ar' ? 'ar-SA' : 'fr-FR';
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-
-      utterance.onstart = () => setIsPlayingAudio(true);
-      utterance.onend = () => setIsPlayingAudio(false);
-      utterance.onerror = () => setIsPlayingAudio(false);
-
-      window.speechSynthesis.speak(utterance);
-      played = true;
+    if (!played) {
+      try {
+        const response = await fetch('/api/ai/tts-briefing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText, language })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.audioBase64) {
+            const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
+            setIsPlayingAudio(true);
+            audio.onended = () => setIsPlayingAudio(false);
+            audio.onerror = () => setIsPlayingAudio(false);
+            await audio.play();
+            played = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Server TTS failed:', err);
+      }
+      setIsTtsLoading(false);
     }
 
-    setIsTtsLoading(false);
+    if (!played) {
+      setIsTtsLoading(false);
+      alert(isAr ? 'تعذر تشغيل الصوت. يرجى التأكد من إعدادات الصوت.' : 'Lecture audio non disponible.');
+    }
   };
 
   const handleRunClimateSimulation = async () => {
