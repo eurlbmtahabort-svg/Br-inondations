@@ -561,8 +561,10 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
+    // Serve static files from dist
     app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (req, res) => {
+    // Serve index.html for all non-api routes
+    app.get(/^(?!\/api).*/, (req, res) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   }
