@@ -52,7 +52,7 @@ jobs:
       - name: Build Debug APK via Gradle
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace --info --debug
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Locate & Package APK
         run: |
