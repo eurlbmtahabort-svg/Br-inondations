@@ -23,7 +23,10 @@ import {
   searchPlacesMultiTier,
   searchLocalDatabase,
   ALGERIAN_GEO_DATABASE,
-  GeoLocationResult
+  GeoLocationResult,
+  findNearestSpatialLocation,
+  generateHydrologyProfileForCoords,
+  fetchFullLocationAndHydrology
 } from '../utils/geoSearch';
 import { exportToGoogleEarthKml, exportToGeoJson } from '../utils/gisExport';
 
@@ -277,34 +280,30 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
     const roundedLat = parseFloat(lat.toFixed(5));
     const roundedLng = parseFloat(lng.toFixed(5));
 
-    const updated: ProjectLocationConfig = {
-      ...formData,
-      coordinates: { ...formData.coordinates, lat: roundedLat, lng: roundedLng }
-    };
-    setFormData(updated);
-    onUpdateConfig(updated);
+    // Immediately generate dynamic hydrology profile for clicked/dragged coordinates
+    const instantProfile = generateHydrologyProfileForCoords(roundedLat, roundedLng);
+    applyCoordinatesToMap(
+      roundedLat,
+      roundedLng,
+      isGps,
+      mapInstanceRef.current?.getZoom() || 14,
+      instantProfile.locationName,
+      instantProfile
+    );
 
-    if (polygonRef.current) {
-      polygonRef.current.setLatLngs(generateWatershedPoints(roundedLat, roundedLng, formData.surfaceKm2));
-    }
-
-    // Try reverse geocoding to retrieve real city/river name
+    // Asynchronously refine if online via reverse geocoding & elevation
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${roundedLat}&lon=${roundedLng}&accept-language=ar,fr`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.display_name) {
-          const shortName = data.address?.city || data.address?.town || data.address?.village || data.address?.county || data.display_name.split(',')[0];
-          const withName: ProjectLocationConfig = {
-            ...updated,
-            locationName: `Bassin Versant - ${shortName}`
-          };
-          setFormData(withName);
-          onUpdateConfig(withName);
-        }
-      }
+      const refined = await fetchFullLocationAndHydrology(roundedLat, roundedLng);
+      applyCoordinatesToMap(
+        roundedLat,
+        roundedLng,
+        isGps,
+        mapInstanceRef.current?.getZoom() || 14,
+        refined.locationName,
+        refined
+      );
     } catch (e) {
-      // Ignore network errors
+      // Keep instant profile
     }
   };
 
@@ -449,17 +448,22 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
     lng: number,
     isGps: boolean = false,
     zoomLevel: number = 15,
-    customLocationName?: string
+    customLocationName?: string,
+    explicitConfig?: ProjectLocationConfig
   ) => {
     const roundedLat = parseFloat(lat.toFixed(5));
     const roundedLng = parseFloat(lng.toFixed(5));
-    const finalLocationName = customLocationName || formData.locationName;
 
-    const newConfig: ProjectLocationConfig = {
-      ...formData,
-      locationName: finalLocationName,
-      coordinates: { ...formData.coordinates, lat: roundedLat, lng: roundedLng }
-    };
+    let newConfig: ProjectLocationConfig;
+    if (explicitConfig) {
+      newConfig = { ...explicitConfig };
+      if (customLocationName) {
+        newConfig.locationName = customLocationName;
+      }
+    } else {
+      // Generate dynamic hydrology profile based on coordinates and nearest spatial region
+      newConfig = generateHydrologyProfileForCoords(roundedLat, roundedLng, customLocationName);
+    }
 
     setFormData(newConfig);
     onUpdateConfig(newConfig);
@@ -477,8 +481,11 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
             <b style="color:${isGps ? '#059669' : '#0284c7'};font-size:12px;">
               ${isGps ? '📍 موقعك الحالي عبر GPS' : '📍 منطقة الدراسة المعتمدة'}
             </b><br>
-            <span style="font-weight:bold;color:#0f172a;font-size:11px;">${finalLocationName}</span><br>
+            <span style="font-weight:bold;color:#0f172a;font-size:11px;">${newConfig.locationName}</span><br>
             <span style="font-size:10px;color:#64748b;">${roundedLat}°N , ${roundedLng}°E</span>
+            <div style="margin-top:3px;font-size:9.5px;color:#059669;font-weight:bold;">
+              ${newConfig.climateZone}
+            </div>
           </div>
         `).openPopup();
       }
@@ -553,14 +560,14 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
         if (data && data.latitude && data.longitude) {
           const lat = parseFloat(parseFloat(data.latitude).toFixed(5));
           const lng = parseFloat(parseFloat(data.longitude).toFixed(5));
-          const cityName = data.city || data.region || data.country || 'موقعك التلقائي';
-          setGpsStatus(`✅ تم تحديد موقعك التلقائي بنجاح: ${cityName} (${lat}°N, ${lng}°E)`);
-          setFormData(prev => ({
-            ...prev,
-            locationName: `Bassin Versant - ${cityName}`,
-            coordinates: { ...prev.coordinates, lat, lng }
-          }));
-          applyCoordinatesToMap(lat, lng, true, 15);
+          const cityName = data.city || data.region;
+          const profile = generateHydrologyProfileForCoords(
+            lat,
+            lng,
+            cityName ? `حوض وادي ${cityName} (${cityName})` : undefined
+          );
+          setGpsStatus(`✅ تم تحديد موقعك التلقائي بنجاح: ${profile.locationName} (${lat}°N, ${lng}°E)`);
+          applyCoordinatesToMap(lat, lng, true, 15, profile.locationName, profile);
           setIsLocatingGps(false);
           return;
         }
@@ -577,14 +584,14 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
         if (data2 && data2.success !== false && data2.latitude && data2.longitude) {
           const lat = parseFloat(data2.latitude.toFixed(5));
           const lng = parseFloat(data2.longitude.toFixed(5));
-          const cityName = data2.city || data2.region || 'موقعك التلقائي';
-          setGpsStatus(`✅ تم تحديد موقعك بنجاح عبر الشبكة: ${cityName} (${lat}°N, ${lng}°E)`);
-          setFormData(prev => ({
-            ...prev,
-            locationName: `Bassin Versant - ${cityName}`,
-            coordinates: { ...prev.coordinates, lat, lng }
-          }));
-          applyCoordinatesToMap(lat, lng, true, 15);
+          const cityName = data2.city || data2.region;
+          const profile = generateHydrologyProfileForCoords(
+            lat,
+            lng,
+            cityName ? `حوض وادي ${cityName} (${cityName})` : undefined
+          );
+          setGpsStatus(`✅ تم تحديد موقعك بنجاح عبر الشبكة: ${profile.locationName} (${lat}°N, ${lng}°E)`);
+          applyCoordinatesToMap(lat, lng, true, 15, profile.locationName, profile);
           setIsLocatingGps(false);
           return;
         }
@@ -601,14 +608,14 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
         if (data3 && data3.latitude && data3.longitude) {
           const lat = parseFloat(data3.latitude.toFixed(5));
           const lng = parseFloat(data3.longitude.toFixed(5));
-          const cityName = data3.cityName || 'موقعك';
-          setGpsStatus(`✅ تم تحديد موقعك: ${cityName} (${lat}°N, ${lng}°E)`);
-          setFormData(prev => ({
-            ...prev,
-            locationName: `Bassin Versant - ${cityName}`,
-            coordinates: { ...prev.coordinates, lat, lng }
-          }));
-          applyCoordinatesToMap(lat, lng, true, 15);
+          const cityName = data3.cityName;
+          const profile = generateHydrologyProfileForCoords(
+            lat,
+            lng,
+            cityName ? `حوض وادي ${cityName} (${cityName})` : undefined
+          );
+          setGpsStatus(`✅ تم تحديد موقعك: ${profile.locationName} (${lat}°N, ${lng}°E)`);
+          applyCoordinatesToMap(lat, lng, true, 15, profile.locationName, profile);
           setIsLocatingGps(false);
           return;
         }
@@ -632,27 +639,48 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
     if ('geolocation' in navigator) {
       // Step 1: Attempt High Accuracy satellite GPS
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           const lat = parseFloat(pos.coords.latitude.toFixed(5));
           const lng = parseFloat(pos.coords.longitude.toFixed(5));
           const accuracy = pos.coords.accuracy || 20;
 
-          setGpsStatus(`✅ تم التقاط إشارة GPS الهاتف بدقة فائقة! تم تمركز الخريطة: ${lat}°N, ${lng}°E (دقة: ±${Math.round(accuracy)}م)`);
-          applyCoordinatesToMap(lat, lng, true, 16);
+          // Compute dynamic hydrology and spatial reverse geocode immediately
+          const initialProfile = generateHydrologyProfileForCoords(lat, lng);
+          applyCoordinatesToMap(lat, lng, true, 16, initialProfile.locationName, initialProfile);
+
+          setGpsStatus(`✅ تم التقاط إشارة GPS الهاتف بدقة فائقة! تم تمركز الخريطة واعتماد: ${initialProfile.locationName} (${lat}°N, ${lng}°E - دقة: ±${Math.round(accuracy)}م)`);
           setIsLocatingGps(false);
+
+          // Asynchronously refine via full geocoding and elevation API
+          try {
+            const refined = await fetchFullLocationAndHydrology(lat, lng);
+            applyCoordinatesToMap(lat, lng, true, 16, refined.locationName, refined);
+            setGpsStatus(`✅ تم تحديث بيانات الحوض الهيدرولوجي للموقع: ${refined.locationName}`);
+          } catch (e) {
+            // Keep initial profile
+          }
         },
         (err) => {
           console.warn('High accuracy GPS timed out, trying low accuracy / network triangulation...', err);
           // Step 2: Retry with low accuracy (cellular network + Wi-Fi)
           navigator.geolocation.getCurrentPosition(
-            (pos) => {
+            async (pos) => {
               const lat = parseFloat(pos.coords.latitude.toFixed(5));
               const lng = parseFloat(pos.coords.longitude.toFixed(5));
               const accuracy = pos.coords.accuracy || 80;
 
-              setGpsStatus(`✅ تم تحديد موقعك عبر شبكة الهاتف: ${lat}°N, ${lng}°E (دقة: ±${Math.round(accuracy)}م)`);
-              applyCoordinatesToMap(lat, lng, true, 15);
+              const initialProfile = generateHydrologyProfileForCoords(lat, lng);
+              applyCoordinatesToMap(lat, lng, true, 15, initialProfile.locationName, initialProfile);
+
+              setGpsStatus(`✅ تم تحديد موقعك عبر شبكة الهاتف: ${initialProfile.locationName} (${lat}°N, ${lng}°E - دقة: ±${Math.round(accuracy)}م)`);
               setIsLocatingGps(false);
+
+              try {
+                const refined = await fetchFullLocationAndHydrology(lat, lng);
+                applyCoordinatesToMap(lat, lng, true, 15, refined.locationName, refined);
+              } catch (e) {
+                // Keep initial profile
+              }
             },
             (err2) => {
               console.warn('Low accuracy GPS also finished, keeping fast network location.', err2);
@@ -669,7 +697,21 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   // Handle Preset selection
   const handleSelectPreset = (preset: ProjectLocationConfig) => {
     setFormData(preset);
+    onUpdateConfig(preset);
+    setManualCoords({ lat: preset.coordinates.lat.toString(), lng: preset.coordinates.lng.toString() });
     updateMapPosition(preset.coordinates.lat, preset.coordinates.lng, preset.surfaceKm2, false);
+    if (markerRef.current) {
+      markerRef.current.bindPopup(`
+        <div style="font-family:sans-serif;text-align:center;padding:4px;direction:rtl;">
+          <b style="color:#0284c7;font-size:12px;">📍 منطقة الدراسة المعتمدة</b><br>
+          <span style="font-weight:bold;color:#0f172a;font-size:11px;">${preset.locationName}</span><br>
+          <span style="font-size:10px;color:#64748b;">${preset.coordinates.lat.toFixed(4)}°N , ${preset.coordinates.lng.toFixed(4)}°E</span>
+          <div style="margin-top:3px;font-size:9.5px;color:#059669;font-weight:bold;">
+            ${preset.climateZone}
+          </div>
+        </div>
+      `).openPopup();
+    }
   };
 
   // Run Hydrological calculation
@@ -790,7 +832,8 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
               onChange={(e) => {
                 const selected = ALGERIAN_WILAYAS.find(w => w.name === e.target.value);
                 if (selected) {
-                  applyCoordinatesToMap(selected.lat, selected.lng, false, 15, `Bassin Versant - ${selected.name}`);
+                  const profile = generateHydrologyProfileForCoords(selected.lat, selected.lng, selected.name);
+                  applyCoordinatesToMap(selected.lat, selected.lng, false, 15, selected.name, profile);
                   setGpsStatus(`✅ تم نقل الخريطة فوراً إلى: ${selected.name} (${selected.lat}°N, ${selected.lng}°E) واعتمادها للدراسة.`);
                 }
               }}
@@ -818,7 +861,8 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
                 key={idx}
                 type="button"
                 onClick={() => {
-                  applyCoordinatesToMap(w.lat, w.lng, false, 15, `Bassin Versant - ${w.name}`);
+                  const profile = generateHydrologyProfileForCoords(w.lat, w.lng, w.name);
+                  applyCoordinatesToMap(w.lat, w.lng, false, 15, w.name, profile);
                   setGpsStatus(`✅ تم الانتقال بنجاح إلى: ${w.name}`);
                 }}
                 className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 hover:border-cyan-400 hover:bg-slate-800 text-slate-300 hover:text-white text-xs whitespace-nowrap shrink-0 transition-colors cursor-pointer"
@@ -1135,12 +1179,19 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const lat = parseFloat(manualCoords.lat);
                   const lng = parseFloat(manualCoords.lng);
                   if (!isNaN(lat) && !isNaN(lng)) {
-                    applyCoordinatesToMap(lat, lng, false, 15);
-                    setGpsStatus(`✅ تم نقل الخريطة إلى الإحداثيات المحددة: ${lat}°N, ${lng}°E`);
+                    const profile = generateHydrologyProfileForCoords(lat, lng);
+                    applyCoordinatesToMap(lat, lng, false, 15, profile.locationName, profile);
+                    setGpsStatus(`✅ تم نقل الخريطة إلى الإحداثيات المحددة: ${profile.locationName} (${lat}°N, ${lng}°E)`);
+                    try {
+                      const refined = await fetchFullLocationAndHydrology(lat, lng);
+                      applyCoordinatesToMap(lat, lng, false, 15, refined.locationName, refined);
+                    } catch (e) {
+                      // Ignore
+                    }
                   }
                 }}
                 className="w-full sm:w-auto px-3.5 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors"

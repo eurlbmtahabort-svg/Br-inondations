@@ -21,8 +21,13 @@ import {
   HYDROGRAPH_SERIES,
   EARLY_WARNING_THRESHOLDS
 } from '../data/projectData';
+import { ProjectLocationConfig } from '../types/hydrology';
 
-export const DashboardView: React.FC = () => {
+interface DashboardViewProps {
+  locationConfig?: ProjectLocationConfig;
+}
+
+export const DashboardView: React.FC<DashboardViewProps> = ({ locationConfig }) => {
   const [selectedHydroTime, setSelectedHydroTime] = useState<number>(6); // Peak at 6h
   const [activeReturnPeriod, setActiveReturnPeriod] = useState<10 | 50 | 100 | 500>(100);
   const [simulatedRain24h, setSimulatedRain24h] = useState<number>(85); // mm for SAP test
@@ -58,8 +63,9 @@ export const DashboardView: React.FC = () => {
               Indicateurs Clés de l'Étude d'Impact Hydraulique
             </h1>
             <p className="text-slate-400 text-sm mt-1 max-w-2xl leading-relaxed">
-              Consolidation multidimensionnelle des données hydrologiques du bassin versant BR, des simulations
-              HEC-HMS / HEC-RAS et des seuils d'alerte civile.
+              Consolidation multidimensionnelle des données hydrologiques pour{' '}
+              <strong className="text-cyan-300">{locationConfig?.locationName || 'le secteur du projet'}</strong>,
+              des simulations HEC-HMS / HEC-RAS et des seuils d'alerte civile.
             </p>
           </div>
 
@@ -88,9 +94,11 @@ export const DashboardView: React.FC = () => {
           <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3">
             <div className="text-[11px] font-mono text-slate-400 uppercase">Superficie Bassin</div>
             <div className="text-xl font-bold font-mono text-white mt-1">
-              48.75 <span className="text-xs font-normal text-slate-400">km²</span>
+              {locationConfig ? locationConfig.surfaceKm2 : 48.75} <span className="text-xs font-normal text-slate-400">km²</span>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Indice Kc = 1.37</div>
+            <div className="text-[10px] text-cyan-400 font-mono mt-0.5">
+              Pente : {locationConfig ? locationConfig.slopePercent : 2.45}%
+            </div>
           </div>
 
           <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3">

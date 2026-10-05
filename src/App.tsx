@@ -96,7 +96,7 @@ export default function App() {
             onNavigateToAi={() => setActiveTab('ai')}
           />
         )}
-        {activeTab === 'dashboard' && <DashboardView />}
+        {activeTab === 'dashboard' && <DashboardView locationConfig={locationConfig} />}
         {activeTab === 'hecras' && <HecRasVisualizer />}
         {activeTab === 'calculator' && <HydraulicCalculator />}
         {activeTab === 'looker' && <LookerStudioHub />}

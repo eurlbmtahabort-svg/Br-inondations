@@ -4,6 +4,8 @@
  * Includes complete Algerian Wilayas (58), Daïras, Communes, and iconic Hydrographic Wadis/Rivers.
  */
 
+import { ProjectLocationConfig } from '../types/hydrology';
+
 export interface GeoLocationResult {
   name: string;
   nameAr: string;
@@ -280,4 +282,261 @@ export async function searchPlacesMultiTier(query: string): Promise<GeoLocationR
   }
 
   return uniqueResults.slice(0, 10);
+}
+
+/**
+ * Haversine formula to compute great-circle distance between two GPS coordinates in km
+ */
+export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Find nearest geographic reference in Algeria (Wilayas, communes, major oueds)
+ */
+export function findNearestSpatialLocation(
+  lat: number,
+  lng: number
+): { matchedItem: GeoLocationResult; distanceKm: number } {
+  let minDistance = Infinity;
+  let nearestItem: GeoLocationResult = ALGERIAN_GEO_DATABASE[0];
+
+  for (const item of ALGERIAN_GEO_DATABASE) {
+    const dist = calculateDistanceKm(lat, lng, item.lat, item.lng);
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearestItem = item;
+    }
+  }
+
+  return {
+    matchedItem: nearestItem,
+    distanceKm: parseFloat(minDistance.toFixed(2))
+  };
+}
+
+/**
+ * Dynamically generate a comprehensive Hydrological & Basin Profile based on geographic coordinates
+ * Automatically adapts terrain, climate zone, SCS soil group, elevation, and typical slopes
+ */
+export function generateHydrologyProfileForCoords(
+  lat: number,
+  lng: number,
+  customName?: string
+): ProjectLocationConfig {
+  const roundedLat = parseFloat(lat.toFixed(5));
+  const roundedLng = parseFloat(lng.toFixed(5));
+
+  const nearest = findNearestSpatialLocation(roundedLat, roundedLng);
+  const isAlgeria = nearest.distanceKm < 450;
+
+  let locName = customName;
+  if (!locName) {
+    if (isAlgeria && nearest.matchedItem) {
+      const code = nearest.matchedItem.wilayaCode ? `[${nearest.matchedItem.wilayaCode}] ` : '';
+      locName = `${nearest.matchedItem.nameAr} (${nearest.matchedItem.nameFr}) - ${code}حوض وادي ${nearest.matchedItem.nameAr}`;
+    } else {
+      locName = `Bassin Versant (${roundedLat.toFixed(4)}°N, ${roundedLng.toFixed(4)}°E)`;
+    }
+  }
+
+  const projSlug = nearest.matchedItem?.nameFr
+    ? `BV_${nearest.matchedItem.nameFr.replace(/[^a-zA-Z0-9]/g, '_')}`
+    : `BV_${Math.round(roundedLat)}_${Math.round(roundedLng)}`;
+
+  // Determine regional climatic, soil, and topographic characteristics
+  if (roundedLat < 28.5) {
+    // Grand Sud / Hoggar / Tassili / Sahara méridional (e.g. Tamanrasset, Djanet, In Guezzam, Bordj Badji Mokhtar, In Salah)
+    const isHoggarRelief = roundedLng >= 2.5 && roundedLng <= 10.0;
+    return {
+      projectName: projSlug,
+      locationName: locName,
+      coordinates: {
+        lat: roundedLat,
+        lng: roundedLng,
+        crs: 'EPSG:32631 (WGS84 UTM 31N)'
+      },
+      surfaceKm2: isHoggarRelief ? 76.50 : 92.00,
+      perimetreKm: isHoggarRelief ? 47.80 : 56.40,
+      drainLengthKm: isHoggarRelief ? 22.40 : 27.20,
+      slopePercent: isHoggarRelief ? 3.60 : 1.15,
+      altMinM: isHoggarRelief ? 1340.0 : 260.0,
+      altMaxM: isHoggarRelief ? 2850.0 : 620.0,
+      urbanizationPct: 10.5,
+      climateZone: isHoggarRelief
+        ? 'Saharien Hyper-aride de Montagne (Hoggar / Tassili - Crues éclairs violentes)'
+        : 'Saharien Hyper-aride de Plaines et Regs',
+      soilGroup: 'D' // Lithosols rocheux, ruissellement instantané
+    };
+  } else if (roundedLat < 33.8) {
+    // Sahara septentrional / Piémonts (Ghardaïa, Ouargla, Béchar, El Oued, El Bayadh, Laghouat, Touggourt)
+    return {
+      projectName: projSlug,
+      locationName: locName,
+      coordinates: {
+        lat: roundedLat,
+        lng: roundedLng,
+        crs: 'EPSG:32631 (WGS84 UTM 31N)'
+      },
+      surfaceKm2: 68.40,
+      perimetreKm: 44.10,
+      drainLengthKm: 19.80,
+      slopePercent: 2.30,
+      altMinM: 420.0,
+      altMaxM: 1180.0,
+      urbanizationPct: 14.0,
+      climateZone: 'Pré-saharien à orages convectifs brutaux (Crues de vallées d\'Oued)',
+      soilGroup: 'D'
+    };
+  } else if (roundedLat < 35.8 && (roundedLng < 2.5 || roundedLng > 4.5 || roundedLat < 35.2)) {
+    // Hauts Plateaux & Steppes (Sétif, Batna, Djelfa, Tiaret, M'Sila, Saïda, Oum El Bouaghi)
+    return {
+      projectName: projSlug,
+      locationName: locName,
+      coordinates: {
+        lat: roundedLat,
+        lng: roundedLng,
+        crs: 'EPSG:32631 (WGS84 UTM 31N)'
+      },
+      surfaceKm2: 56.20,
+      perimetreKm: 38.60,
+      drainLengthKm: 16.50,
+      slopePercent: 2.75,
+      altMinM: 780.0,
+      altMaxM: 1620.0,
+      urbanizationPct: 18.5,
+      climateZone: 'Semi-aride continental des Hauts Plateaux (Régime orageux d\'été)',
+      soilGroup: 'C'
+    };
+  } else if (roundedLat <= 37.5) {
+    // Tell & Littoral Méditerranéen (Alger, Boumerdès, Tipaza, Blida, Béjaïa, Oran, etc.)
+    return {
+      projectName: projSlug,
+      locationName: locName,
+      coordinates: {
+        lat: roundedLat,
+        lng: roundedLng,
+        crs: 'EPSG:32631 (WGS84 UTM 31N)'
+      },
+      surfaceKm2: 64.20,
+      perimetreKm: 42.80,
+      drainLengthKm: 18.50,
+      slopePercent: 3.10,
+      altMinM: 25.0,
+      altMaxM: 780.0,
+      urbanizationPct: 22.0,
+      climateZone: 'Méditerranéen Côtier et Tellien (Pluies hivernales intenses)',
+      soilGroup: 'C'
+    };
+  } else {
+    // International / Site Pilote BR (France / Méditerranée)
+    return {
+      projectName: 'BR_inondations',
+      locationName: locName,
+      coordinates: {
+        lat: roundedLat,
+        lng: roundedLng,
+        crs: 'EPSG:2154 (Lambert-93) / WGS84'
+      },
+      surfaceKm2: 48.75,
+      perimetreKm: 34.20,
+      drainLengthKm: 14.80,
+      slopePercent: 2.45,
+      altMinM: 142.0,
+      altMaxM: 584.0,
+      urbanizationPct: 14.5,
+      climateZone: 'Méditerranéen / Cévenol',
+      soilGroup: 'C'
+    };
+  }
+}
+
+/**
+ * Comprehensive reverse geocoding + regional hydrology retrieval
+ * Combines instant spatial lookup with online Nominatim and Open-Meteo elevation
+ */
+export async function fetchFullLocationAndHydrology(
+  lat: number,
+  lng: number
+): Promise<ProjectLocationConfig> {
+  const roundedLat = parseFloat(lat.toFixed(5));
+  const roundedLng = parseFloat(lng.toFixed(5));
+
+  // Step 1: Instant spatial nearest lookup against 58 wilayas & oueds
+  const nearest = findNearestSpatialLocation(roundedLat, roundedLng);
+  let resolvedName = '';
+
+  if (nearest.matchedItem && nearest.distanceKm < 200) {
+    const code = nearest.matchedItem.wilayaCode ? `[${nearest.matchedItem.wilayaCode}] ` : '';
+    resolvedName = `${nearest.matchedItem.nameAr} (${nearest.matchedItem.nameFr}) - ${code}حوض وادي ${nearest.matchedItem.nameAr}`;
+  }
+
+  // Step 2: Query Nominatim Reverse Geocoding with strict 2.2s timeout
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2200);
+
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${roundedLat}&lon=${roundedLng}&accept-language=ar,fr&zoom=14`;
+    const res = await fetch(nominatimUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const localCity = addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.state;
+        const state = addr.state || addr.region || addr.country || '';
+
+        if (localCity) {
+          const statePart = state && state !== localCity ? ` - ${state}` : '';
+          resolvedName = `${localCity}${statePart} (حوض وادي ${localCity})`;
+        } else if (data.display_name) {
+          const parts = data.display_name.split(',');
+          const short = parts.slice(0, 2).join(' - ').trim();
+          resolvedName = `حوض وادي ${short}`;
+        }
+      }
+    }
+  } catch (err) {
+    // Reverse geocoding network timeout/error - fallback smoothly to spatial nearest lookup
+  }
+
+  // Step 3: Elevation lookup from Open-Meteo with 1.8s timeout
+  let realElevation: number | null = null;
+  try {
+    const elevController = new AbortController();
+    const elevTimeout = setTimeout(() => elevController.abort(), 1800);
+    const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${roundedLat}&longitude=${roundedLng}`;
+    const elevRes = await fetch(elevUrl, { signal: elevController.signal });
+    clearTimeout(elevTimeout);
+
+    if (elevRes.ok) {
+      const elevData = await elevRes.json();
+      if (elevData && Array.isArray(elevData.elevation) && elevData.elevation[0] !== undefined) {
+        realElevation = Math.round(elevData.elevation[0]);
+      }
+    }
+  } catch (e) {
+    // Ignore elevation lookup errors
+  }
+
+  const profile = generateHydrologyProfileForCoords(roundedLat, roundedLng, resolvedName || undefined);
+
+  if (realElevation !== null && realElevation >= 0) {
+    profile.altMinM = realElevation;
+    const reliefSpan = profile.slopePercent * 250;
+    profile.altMaxM = Math.max(Math.round(realElevation + reliefSpan), realElevation + 120);
+  }
+
+  return profile;
 }
