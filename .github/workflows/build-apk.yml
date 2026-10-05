@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-apk:
     name: Build & Package Android APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
