@@ -26,7 +26,8 @@ import {
   GeoLocationResult,
   findNearestSpatialLocation,
   generateHydrologyProfileForCoords,
-  fetchFullLocationAndHydrology
+  fetchFullLocationAndHydrology,
+  calculatePolygonAreaAndPerimeter
 } from '../utils/geoSearch';
 import { exportToGoogleEarthKml, exportToGeoJson } from '../utils/gisExport';
 
@@ -115,6 +116,130 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([]);
+
+  // Manual polygon drawing state
+  const [isDrawingCustomPolygon, setIsDrawingCustomPolygon] = useState<boolean>(false);
+  const [customPolygonPoints, setCustomPolygonPoints] = useState<Array<[number, number]>>([]);
+  const [isCustomPolygonActive, setIsCustomPolygonActive] = useState<boolean>(false);
+  const isDrawingRef = useRef<boolean>(false);
+  isDrawingRef.current = isDrawingCustomPolygon;
+  const drawingPreviewLayerRef = useRef<L.LayerGroup | null>(null);
+
+  const toggleDrawingMode = () => {
+    const next = !isDrawingCustomPolygon;
+    setIsDrawingCustomPolygon(next);
+    if (next) {
+      setCustomPolygonPoints([]);
+      if (mapInstanceRef.current) {
+        if (!drawingPreviewLayerRef.current) {
+          drawingPreviewLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+        } else {
+          drawingPreviewLayerRef.current.clearLayers();
+        }
+      }
+      setGpsStatus('✏️ وضع الرسم اليدوي مفعل: انقر على الخريطة لتحديد نقاط حدود الحوض الفرعي (3 نقاط على الأقل).');
+    } else {
+      if (drawingPreviewLayerRef.current) {
+        drawingPreviewLayerRef.current.clearLayers();
+      }
+      setGpsStatus('⏹️ تم إلغاء وضع الرسم اليدوي.');
+    }
+  };
+
+  const updateDrawingPreview = (points: Array<[number, number]>) => {
+    if (!mapInstanceRef.current) return;
+    if (!drawingPreviewLayerRef.current) {
+      drawingPreviewLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+    }
+    const group = drawingPreviewLayerRef.current;
+    group.clearLayers();
+
+    points.forEach((pt, idx) => {
+      L.circleMarker(pt, {
+        radius: 6,
+        color: '#ffffff',
+        fillColor: '#f59e0b',
+        fillOpacity: 1,
+        weight: 2
+      }).bindPopup(`النقطة #${idx + 1}`).addTo(group);
+    });
+
+    if (points.length >= 2) {
+      L.polyline(points, {
+        color: '#f59e0b',
+        weight: 3,
+        dashArray: '4, 4'
+      }).addTo(group);
+    }
+  };
+
+  const handleCloseCustomPolygon = () => {
+    if (customPolygonPoints.length < 3) {
+      alert('⚠️ يرجى النقر على 3 نقاط على الأقل في الخريطة لرسم حدود حوض فرعي مغلق.');
+      return;
+    }
+
+    const { areaKm2, perimetreKm } = calculatePolygonAreaAndPerimeter(customPolygonPoints);
+
+    const updated: ProjectLocationConfig = {
+      ...formData,
+      locationName: `${formData.locationName} (حوض فرعي مخصص)`,
+      surfaceKm2: areaKm2,
+      perimetreKm: perimetreKm,
+      drainLengthKm: parseFloat((Math.sqrt(areaKm2) * 1.6).toFixed(1))
+    };
+
+    setFormData(updated);
+    onUpdateConfig(updated);
+    setIsDrawingCustomPolygon(false);
+    setIsCustomPolygonActive(true);
+
+    if (drawingPreviewLayerRef.current) {
+      drawingPreviewLayerRef.current.clearLayers();
+    }
+
+    if (polygonRef.current && mapInstanceRef.current) {
+      polygonRef.current.setLatLngs(customPolygonPoints);
+      polygonRef.current.setStyle({
+        color: '#10b981',
+        fillColor: '#059669',
+        fillOpacity: 0.35,
+        dashArray: undefined
+      });
+    }
+
+    setSuccessMessage(`✅ تم حساب مساحة الحوض المخصص يدوياً بنجاح: ${areaKm2} كم² (المحيط: ${perimetreKm} كم). تم تحديث كافة حسابات الـ Q100 والتقرير.`);
+    setGpsStatus(`✅ تم اعتماد الحوض الفرعي المخصص (${areaKm2} كم²) بنجاح للدراسة الهيدروليكية.`);
+  };
+
+  const handleResetToAutoWatershed = () => {
+    setIsCustomPolygonActive(false);
+    setCustomPolygonPoints([]);
+    if (drawingPreviewLayerRef.current) {
+      drawingPreviewLayerRef.current.clearLayers();
+    }
+
+    const autoPoly = generateWatershedPoints(formData.coordinates.lat, formData.coordinates.lng, 64.20);
+    const updated: ProjectLocationConfig = {
+      ...formData,
+      surfaceKm2: 64.20,
+      perimetreKm: 42.80,
+      drainLengthKm: 18.50
+    };
+    setFormData(updated);
+    onUpdateConfig(updated);
+
+    if (polygonRef.current) {
+      polygonRef.current.setLatLngs(autoPoly);
+      polygonRef.current.setStyle({
+        color: '#22d3ee',
+        fillColor: '#06b6d4',
+        fillOpacity: 0.20,
+        dashArray: '6, 6'
+      });
+    }
+    setGpsStatus('🔄 تم العودة إلى كشف الحوض التلقائي وافتراضات المساحة الأصلية.');
+  };
 
   // Leaflet map reference
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -230,8 +355,16 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
       // On click anywhere on map
       map.on('click', (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        updateLocationFromCoords(lat, lng);
+        if (isDrawingRef.current) {
+          setCustomPolygonPoints(prev => {
+            const next = [...prev, [lat, lng] as [number, number]];
+            updateDrawingPreview(next);
+            return next;
+          });
+        } else {
+          marker.setLatLng([lat, lng]);
+          updateLocationFromCoords(lat, lng);
+        }
       });
 
       // Watershed Polygon overlay
@@ -1076,6 +1209,47 @@ export const LocationManager: React.FC<LocationManagerProps> = ({
                 <Globe className="w-3 h-3 text-amber-400" />
                 <span>Google Earth (.KML)</span>
               </button>
+
+              {/* Manual Polygon Drawing Tools */}
+              {!isDrawingCustomPolygon ? (
+                <button
+                  type="button"
+                  onClick={toggleDrawingMode}
+                  className="px-2.5 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                  title="رسم حدود حوض فرعي مخصص يدوياً على الخريطة"
+                >
+                  <Sliders className="w-3 h-3 text-amber-400" />
+                  <span>✏️ رسم حوض فرعي يدوياً</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 animate-pulse">
+                  <button
+                    type="button"
+                    onClick={handleCloseCustomPolygon}
+                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow"
+                  >
+                    <span>✅ إغلاق الحوض ({customPolygonPoints.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleDrawingMode}
+                    className="px-2 py-1 rounded bg-rose-600/80 hover:bg-rose-500 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              )}
+
+              {isCustomPolygonActive && (
+                <button
+                  type="button"
+                  onClick={handleResetToAutoWatershed}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                  title="العودة للحوض التلقائي"
+                >
+                  <span>🔄 إعادة الضبط للافتراضي</span>
+                </button>
+              )}
 
               {/* Map Layer Switcher */}
               <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[11px]">
