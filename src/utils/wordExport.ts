@@ -9,6 +9,9 @@ import {
   EARLY_WARNING_THRESHOLDS
 } from '../data/projectData';
 import { getRealSatelliteImageUrl, getRealTopoImageUrl } from './satelliteImagery';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 import hecRasImgUrl from '../assets/images/hec_ras_hydraulic_simulation_1790800984505.jpg';
 
@@ -806,7 +809,36 @@ export async function exportStudyToWord(
     </html>
   `;
 
-  // Robust download supporting both Web and Mobile Android APK (WebView)
+  // If running in Native Capacitor Android/iOS app, use Filesystem and Share
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const fullContent = '\ufeff' + htmlContent;
+      // Convert string to base64
+      const base64Data = btoa(
+        encodeURIComponent(fullContent).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+          String.fromCharCode(parseInt(p1, 16))
+        )
+      );
+
+      const savedFile = await Filesystem.writeFile({
+        path: docTitle,
+        data: base64Data,
+        directory: Directory.Cache
+      });
+
+      await Share.share({
+        title: 'تصدير دراسة الفيضانات',
+        text: `تقرير دراسة الهيدرولوجيا - ${docTitle}`,
+        url: savedFile.uri,
+        dialogTitle: 'حفظ أو مشاركة ملف الوورد (.doc)'
+      });
+      return;
+    } catch (nativeErr) {
+      console.warn('Native Capacitor save/share failed, falling back to Web download:', nativeErr);
+    }
+  }
+
+  // Robust download supporting Web browsers
   try {
     const dataUri = 'data:application/msword;charset=utf-8,' + encodeURIComponent('\ufeff' + htmlContent);
     const link = document.createElement('a');
