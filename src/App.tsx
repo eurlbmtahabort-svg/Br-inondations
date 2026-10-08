@@ -18,9 +18,10 @@ import { ExecutiveSummaryModal } from './components/ExecutiveSummaryModal';
 import { exportToGoogleEarthKml, exportToGeoJson } from './utils/gisExport';
 import { AiHydrologyAdvisor } from './components/AiHydrologyAdvisor';
 import { ApkDownloadModal } from './components/ApkDownloadModal';
+import { AdvancedEngineeringHub } from './components/AdvancedEngineeringHub';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai'>('location');
+  const [activeTab, setActiveTab] = useState<'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai' | 'advanced'>('location');
   const [locationConfig, setLocationConfig] = useState<ProjectLocationConfig>(PRESET_LOCATIONS[0]);
   const [language, setLanguage] = useState<'fr' | 'ar'>('ar');
   const [isWordModalOpen, setIsWordModalOpen] = useState<boolean>(false);
@@ -98,6 +99,7 @@ export default function App() {
         )}
         {activeTab === 'dashboard' && <DashboardView locationConfig={locationConfig} />}
         {activeTab === 'hecras' && <HecRasVisualizer />}
+        {activeTab === 'advanced' && <AdvancedEngineeringHub locationConfig={locationConfig} />}
         {activeTab === 'calculator' && <HydraulicCalculator />}
         {activeTab === 'looker' && <LookerStudioHub />}
         {activeTab === 'ai' && (

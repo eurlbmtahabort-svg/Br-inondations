@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain, Smartphone } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai';
-  setActiveTab: (tab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai') => void;
+  activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai' | 'advanced';
+  setActiveTab: (tab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai' | 'advanced') => void;
   onPrint: () => void;
   onQuickExport: () => void;
   onExportWord: () => void;
@@ -53,6 +53,12 @@ export const Header: React.FC<HeaderProps> = ({
       icon: Waves
     },
     {
+      id: 'advanced' as const,
+      label: isAr ? 'الهندسة المتقدمة ⚡' : 'Ingénierie Avancée ⚡',
+      icon: Sliders,
+      highlight: true
+    },
+    {
       id: 'calculator' as const,
       label: isAr ? 'حاسبة الأبعاد' : 'Dimensionnement',
       icon: Calculator
@@ -60,8 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
     {
       id: 'ai' as const,
       label: isAr ? 'مستشار الذكاء الاصطناعي ✨' : 'Conseiller IA ✨',
-      icon: Sparkles,
-      highlight: true
+      icon: Sparkles
     },
     {
       id: 'looker' as const,
