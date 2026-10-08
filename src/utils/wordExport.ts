@@ -13,9 +13,13 @@ import { getRealSatelliteImageUrl, getRealTopoImageUrl } from './satelliteImager
 import hecRasImgUrl from '../assets/images/hec_ras_hydraulic_simulation_1790800984505.jpg';
 
 // Helper to convert local image asset to base64 Data URI so it embeds directly into Word
-async function fetchImageAsBase64(url: string): Promise<string> {
+async function fetchImageAsBase64(url: string, timeoutMs: number = 4000): Promise<string> {
   try {
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) return '';
     const blob = await response.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -802,16 +806,30 @@ export async function exportStudyToWord(
     </html>
   `;
 
-  // Create Blob & Download as Word document
-  const blob = new Blob(['\ufeff', htmlContent], {
-    type: 'application/msword;charset=utf-8'
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = docTitle;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Robust download supporting both Web and Mobile Android APK (WebView)
+  try {
+    const dataUri = 'data:application/msword;charset=utf-8,' + encodeURIComponent('\ufeff' + htmlContent);
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = docTitle;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 1500);
+  } catch (err) {
+    console.warn('Data URI download failed, falling back to Blob URL:', err);
+    const blob = new Blob(['\ufeff', htmlContent], {
+      type: 'application/msword;charset=utf-8'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = docTitle;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 }
