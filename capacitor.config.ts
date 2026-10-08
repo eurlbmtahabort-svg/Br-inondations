@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'دراسة الفيضانات',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
     cleartext: true
   }
 };
