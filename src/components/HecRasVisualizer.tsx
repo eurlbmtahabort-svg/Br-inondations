@@ -275,13 +275,21 @@ export const HecRasVisualizer: React.FC = () => {
           </div>
 
           {/* Hydraulic Telemetry Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
               <div className="text-[11px] font-mono text-slate-400 uppercase">Tirant d'Eau (h)</div>
               <div className="text-xl font-mono font-bold text-white mt-1">
                 {selectedSection.q100DepthM.toFixed(2)} <span className="text-xs font-normal text-slate-400">m</span>
               </div>
               <div className="text-[10px] text-slate-400 font-mono mt-0.5">Sur radier PK</div>
+            </div>
+
+            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+              <div className="text-[11px] font-mono text-slate-400 uppercase">العمق الحرج ($y_c$)</div>
+              <div className="text-xl font-mono font-bold text-teal-300 mt-1">
+                {(Math.cbrt(Math.pow(104.7 / 2, 2) / 9.81 / Math.pow(selectedSection.bedWidthM, 2))).toFixed(2)} <span className="text-xs font-normal text-slate-400">m</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono mt-0.5">Seuil critique E=min</div>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">

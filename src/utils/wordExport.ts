@@ -394,29 +394,35 @@ export async function exportStudyToWord(
             </div>
           </div>
 
-          <h4>جدول نتائج محاكاة HEC-RAS 1D/2D للمقاطع العرضية [BR_HEC_RAS_Hydraulique] :</h4>
+          <h4>جدول نتائج محاكاة HEC-RAS 1D/2D للمقاطع العرضية مع العمق الحرج ورقم فرود [BR_HEC_RAS_Hydraulique] :</h4>
           <table>
             <thead>
               <tr>
                 <th>معرف المقطع</th>
                 <th>الموقع (PK)</th>
-                <th>ارتفاع المنسوب PHEC Q100 (م)</th>
-                <th>عمق الماء h (م)</th>
-                <th>السرعة المتوسطة v (م/ثا)</th>
+                <th>منسوب Q100 (م)</th>
+                <th>عمق h (م)</th>
+                <th>العمق الحرج yc (م)</th>
+                <th>رقم فرود Fr</th>
+                <th>نوع الجريان</th>
                 <th>مستوى الخطر</th>
               </tr>
             </thead>
             <tbody>
-              ${HEC_RAS_SECTIONS.map(s => `
+              ${HEC_RAS_SECTIONS.map(s => {
+                const yc = Math.cbrt(Math.pow(104.7 / 2, 2) / 9.81 / Math.pow(s.bedWidthM, 2));
+                return `
                 <tr>
                   <td>${s.sectionId}</td>
                   <td>${s.stationPK}</td>
                   <td>${s.q100WaterLevelM.toFixed(2)}</td>
                   <td>${s.q100DepthM.toFixed(2)}</td>
-                  <td>${s.q100VelocityMs.toFixed(2)}</td>
+                  <td>${yc.toFixed(2)}</td>
+                  <td>${s.q100Froude.toFixed(2)}</td>
+                  <td>${s.q100Froude < 1 ? 'تحت حرج (Fluvial)' : 'فوق حرج (Torrentiel)'}</td>
                   <td>${s.hazardLevel}</td>
                 </tr>
-              `).join('')}
+              `;}).join('')}
             </tbody>
           </table>
         `;
@@ -749,23 +755,29 @@ export async function exportStudyToWord(
           <tr>
             <th>Section ID</th>
             <th>Station PK</th>
-            <th>Cote PHEC Q100 (m)</th>
-            <th>Hauteur d'Eau h (m)</th>
-            <th>Vitesse Moyenne v (m/s)</th>
-            <th>Niveau d'Aléa</th>
+            <th>Cote Q100 (m)</th>
+            <th>Tirant d'eau h (m)</th>
+            <th>Prof. Critique yc (m)</th>
+            <th>Froude Fr</th>
+            <th>Régime</th>
+            <th>Aléa</th>
           </tr>
         </thead>
         <tbody>
-          ${HEC_RAS_SECTIONS.map(s => `
+          ${HEC_RAS_SECTIONS.map(s => {
+            const yc = Math.cbrt(Math.pow(104.7 / 2, 2) / 9.81 / Math.pow(s.bedWidthM, 2));
+            return `
             <tr>
               <td>${s.sectionId}</td>
               <td>${s.stationPK}</td>
               <td>${s.q100WaterLevelM.toFixed(2)}</td>
               <td>${s.q100DepthM.toFixed(2)}</td>
-              <td>${s.q100VelocityMs.toFixed(2)}</td>
+              <td>${yc.toFixed(2)}</td>
+              <td>${s.q100Froude.toFixed(2)}</td>
+              <td>${s.q100Froude < 1 ? 'Fluvial (Fr<1)' : 'Torrentiel (Fr>1)'}</td>
               <td>${s.hazardLevel}</td>
             </tr>
-          `).join('')}
+          `;}).join('')}
         </tbody>
       </table>
 
