@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain, Smartphone } from 'lucide-react';
+import { Download, Printer, FileText, LayoutDashboard, Waves, Database, Calculator, MapPin, FileDown, Languages, Globe, Award, Sparkles, Brain, Smartphone, Sliders } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'report' | 'dashboard' | 'hecras' | 'looker' | 'calculator' | 'location' | 'ai' | 'advanced';
